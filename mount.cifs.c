@@ -689,73 +689,85 @@ static int parse_opt_token(const char *token)
 	if (token == NULL)
 		return OPT_ERROR;
 
-	if (strncmp(token, "users", 5) == 0)
+	/*
+	 * token is NULL terminated and contains exactly the
+	 * keyword so we can match exactly
+	 */
+	if (strcmp(token, "users") == 0)
 		return OPT_USERS;
-	if (strncmp(token, "user_xattr", 10) == 0)
+	if (strcmp(token, "user_xattr") == 0)
 		return OPT_USER_XATTR;
-	if (strncmp(token, "user", 4) == 0)
+	if (strcmp(token, "user") == 0 ||
+		strcmp(token, "username") == 0)
 		return OPT_USER;
-	if (strncmp(token, "pass", 4) == 0)
+	if (strcmp(token, "pass") == 0 ||
+		strcmp(token, "password") == 0)
 		return OPT_PASS;
-	if (strncmp(token, "sec", 3) == 0)
+	if (strcmp(token, "sec") == 0)
 		return OPT_SEC;
-	if (strncmp(token, "ip", 2) == 0)
+	if (strcmp(token, "ip") == 0 ||
+		strcmp(token, "addr") == 0)
 		return OPT_IP;
-	if (strncmp(token, "unc", 3) == 0 ||
-		strncmp(token, "target", 6) == 0 ||
-		strncmp(token, "path", 4) == 0)
+	if (strcmp(token, "unc") == 0 ||
+		strcmp(token, "target") == 0 ||
+		strcmp(token, "path") == 0)
 		return OPT_UNC;
-	if (strncmp(token, "dom", 3) == 0 || strncmp(token, "workg", 5) == 0)
+	if (strcmp(token, "dom") == 0 ||
+		strcmp(token, "domain") == 0 ||
+		strcmp(token, "workgroup") == 0)
 		return OPT_DOM;
-	if (strncmp(token, "cred", 4) == 0)
+	if (strcmp(token, "cred") == 0 || /* undocumented */
+		strcmp(token, "credentials") == 0)
 		return OPT_CRED;
-	if (strncmp(token, "uid", 3) == 0)
+	if (strcmp(token, "uid") == 0)
 		return OPT_UID;
-	if (strncmp(token, "cruid", 5) == 0)
+	if (strcmp(token, "cruid") == 0)
 		return OPT_CRUID;
-	if (strncmp(token, "gid", 3) == 0)
+	if (strcmp(token, "gid") == 0)
 		return OPT_GID;
-	if (strncmp(token, "fmask", 5) == 0)
+	if (strcmp(token, "fmask") == 0)
 		return OPT_FMASK;
-	if (strncmp(token, "file_mode", 9) == 0)
+	if (strcmp(token, "file_mode") == 0)
 		return OPT_FILE_MODE;
-	if (strncmp(token, "dmask", 5) == 0)
+	if (strcmp(token, "dmask") == 0)
 		return OPT_DMASK;
-	if (strncmp(token, "dir_mode", 4) == 0 || strncmp(token, "dirm", 4) == 0)
+	if (strcmp(token, "dir_mode") == 0 ||
+		strcmp(token, "dirm") == 0)
 		return OPT_DIR_MODE;
-	if (strncmp(token, "nosuid", 6) == 0)
+	if (strcmp(token, "nosuid") == 0)
 		return OPT_NO_SUID;
-	if (strncmp(token, "suid", 4) == 0)
+	if (strcmp(token, "suid") == 0)
 		return OPT_SUID;
-	if (strncmp(token, "nodev", 5) == 0)
+	if (strcmp(token, "nodev") == 0)
 		return OPT_NO_DEV;
-	if (strncmp(token, "nobrl", 5) == 0 || strncmp(token, "nolock", 6) == 0)
+	if (strcmp(token, "nobrl") == 0 ||
+		strcmp(token, "nolock") == 0)
 		return OPT_NO_LOCK;
-	if (strncmp(token, "mand", 4) == 0)
+	if (strcmp(token, "mand") == 0)
 		return OPT_MAND;
-	if (strncmp(token, "nomand", 6) == 0)
+	if (strcmp(token, "nomand") == 0)
 		return OPT_NOMAND;
-	if (strncmp(token, "dev", 3) == 0)
+	if (strcmp(token, "dev") == 0)
 		return OPT_DEV;
-	if (strncmp(token, "noexec", 6) == 0)
+	if (strcmp(token, "noexec") == 0)
 		return OPT_NO_EXEC;
-	if (strncmp(token, "exec", 4) == 0)
+	if (strcmp(token, "exec") == 0)
 		return OPT_EXEC;
-	if (strncmp(token, "guest", 5) == 0)
+	if (strcmp(token, "guest") == 0)
 		return OPT_GUEST;
-	if (strncmp(token, "ro", 2) == 0)
+	if (strcmp(token, "ro") == 0)
 		return OPT_RO;
-	if (strncmp(token, "rw", 2) == 0 && strlen(token) == 2)
+	if (strcmp(token, "rw") == 0)
 		return OPT_RW;
-	if (strncmp(token, "remount", 7) == 0)
+	if (strcmp(token, "remount") == 0)
 		return OPT_REMOUNT;
-	if (strncmp(token, "_netdev", 7) == 0)
+	if (strcmp(token, "_netdev") == 0)
 		return OPT_IGNORE;
-	if (strncmp(token, "backupuid", 9) == 0)
+	if (strcmp(token, "backupuid") == 0)
 		return OPT_BKUPUID;
-	if (strncmp(token, "backupgid", 9) == 0)
+	if (strcmp(token, "backupgid") == 0)
 		return OPT_BKUPGID;
-	if (strncmp(token, "nofail", 6) == 0)
+	if (strcmp(token, "nofail") == 0)
 		return OPT_NOFAIL;
 	if (strncmp(token, "x-", 2) == 0)
 		return OPT_IGNORE;
