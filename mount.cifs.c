@@ -45,7 +45,6 @@
 #include <libgen.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
-#include <stdbool.h>
 #ifdef HAVE_SYS_FSUID_H
 #include <sys/fsuid.h>
 #endif /* HAVE_SYS_FSUID_H */
