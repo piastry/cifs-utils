@@ -1808,7 +1808,7 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 		if (*parsed_info->options)
 			strlcat(parsed_info->options, ",",
 				sizeof(parsed_info->options));
-		strlcat(parsed_info->options, ",domain=",
+		strlcat(parsed_info->options, "domain=",
 			sizeof(parsed_info->options));
 		strlcat(parsed_info->options, parsed_info->domain,
 			sizeof(parsed_info->options));
