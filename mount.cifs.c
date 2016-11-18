@@ -189,6 +189,7 @@ struct parsed_mount_info {
 	unsigned int nomtab:1;
 	unsigned int verboseflag:1;
 	unsigned int nofail:1;
+	unsigned int got_domain:1;
 };
 
 static const char *thisprogram;
@@ -904,9 +905,14 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 
 		/* dom || workgroup */
 		case OPT_DOM:
-			if (!value || !*value) {
-				fprintf(stderr, "CIFS: invalid domain name\n");
-				return EX_USAGE;
+			if (!value) {
+				/*
+				 * An empty domain has been passed
+				 */
+				/* not necessary but better safe than.. */
+				parsed_info->domain[0] = '\0';
+				parsed_info->got_domain = 1;
+				goto nocopy;
 			}
 			if (strnlen(value, sizeof(parsed_info->domain)) >=
 			    sizeof(parsed_info->domain)) {
@@ -1811,6 +1817,9 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 		strlcat(parsed_info->options, "domain=",
 			sizeof(parsed_info->options));
 		strlcat(parsed_info->options, parsed_info->domain,
+			sizeof(parsed_info->options));
+	} else if (parsed_info->got_domain) {
+		strlcat(parsed_info->options, ",domain=",
 			sizeof(parsed_info->options));
 	}
 
