@@ -38,6 +38,15 @@ for a particular key type\&. While it can be run directly from the command\-line
 This option is deprecated and is currently ignored\&.
 .RE
 .PP
+\-\-no-env-probe|\-E
+.RS 4
+Normally, cifs.upcall will probe the environment variable space of the process
+that initiated the upcall in order to fetch the value of $KRB5CCNAME. This can
+assist the program with finding credential caches in non-default locations. If
+this option is set, then the program won't do this and will rely on finding
+credcaches in the default locations specified in krb5.conf.
+.RE
+.PP
 \--krb5conf=/path/to/krb5.conf|-k /path/to/krb5.conf
 .RS 4
 This option allows administrators to set an alternate location for the

@@ -40,6 +40,7 @@
 #include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <keyutils.h>
 #include <time.h>
@@ -213,16 +214,138 @@ err_cache:
 	return credtime;
 }
 
+#define	ENV_PATH_FMT			"/proc/%d/environ"
+#define	ENV_PATH_MAXLEN			(6 + 10 + 8 + 1)
+
+#define	ENV_NAME			"KRB5CCNAME"
+#define	ENV_PREFIX			"KRB5CCNAME="
+#define	ENV_PREFIX_LEN			11
+
+#define	ENV_BUF_START			(4096)
+#define	ENV_BUF_MAX			(131072)
+
+/**
+ * get_cachename_from_process_env - scrape value of $KRB5CCNAME out of the
+ * 				    initiating process' environment.
+ * @pid: initiating pid value from the upcall string
+ *
+ * Open the /proc/<pid>/environ file for the given pid, and scrape it for
+ * KRB5CCNAME entries.
+ *
+ * We start with a page-size buffer, and then progressively double it until
+ * we can slurp in the whole thing.
+ *
+ * Note that this is not entirely reliable. If the process is sitting in a
+ * container or something, then this is almost certainly not going to point
+ * where you expect.
+ *
+ * Probably it just won't work, but could a user use this to trick cifs.upcall
+ * into reading a file outside the container, by setting KRB5CCNAME in a
+ * crafty way?
+ */
+static char *
+get_cachename_from_process_env(pid_t pid)
+{
+	int fd, ret;
+	ssize_t buflen;
+	ssize_t bufsize = ENV_BUF_START;
+	char pathname[ENV_PATH_MAXLEN];
+	char *cachename = NULL;
+	char *buf = NULL, *pos;
+
+	if (!pid) {
+		syslog(LOG_DEBUG, "%s: pid == 0\n", __func__);
+		return NULL;
+	}
+
+	pathname[ENV_PATH_MAXLEN - 1] = '\0';
+	ret = snprintf(pathname, ENV_PATH_MAXLEN, ENV_PATH_FMT, pid);
+	if (ret >= ENV_PATH_MAXLEN) {
+		syslog(LOG_DEBUG, "%s: unterminated path!\n", __func__);
+		return NULL;
+	}
+
+	syslog(LOG_DEBUG, "%s: pathname=%s\n", __func__, pathname);
+	fd = open(pathname, O_RDONLY);
+	if (fd < 0) {
+		syslog(LOG_DEBUG, "%s: open failed: %d\n", __func__, errno);
+		return NULL;
+	}
+retry:
+	if (bufsize > ENV_BUF_MAX) {
+		syslog(LOG_DEBUG, "%s: buffer too big: %zd\n",
+							__func__, bufsize);
+		goto out_close;
+	}
+
+	buf = malloc(bufsize);
+	if (!buf) {
+		syslog(LOG_DEBUG, "%s: malloc failure\n", __func__);
+		goto out_close;
+	}
+
+	buflen = read(fd, buf, bufsize);
+	if (buflen < 0) {
+		syslog(LOG_DEBUG, "%s: read failed: %d\n", __func__, errno);
+		goto out_close;
+	}
+
+	if (buflen >= bufsize) {
+		/* We read to the end of the buffer. Double and try again */
+		syslog(LOG_DEBUG, "%s: read to end of buffer (%zu bytes)\n",
+					__func__, bufsize);
+		free(buf);
+		bufsize *= 2;
+		if (lseek(fd, 0, SEEK_SET) < 0)
+			goto out_close;
+		goto retry;
+	}
+
+	pos = buf;
+	while (buflen > 0) {
+		size_t len = strnlen(pos, buflen);
+
+		if (len > ENV_PREFIX_LEN &&
+		    !memcmp(pos, ENV_PREFIX, ENV_PREFIX_LEN)) {
+			cachename = strndup(pos + ENV_PREFIX_LEN,
+							len - ENV_PREFIX_LEN);
+			syslog(LOG_DEBUG, "%s: cachename = %s\n",
+							__func__, cachename);
+			break;
+		}
+		buflen -= (len + 1);
+		pos += (len + 1);
+	}
+out_close:
+	free(buf);
+	close(fd);
+	return cachename;
+}
+
 static krb5_ccache
-get_default_cc(void)
+get_existing_cc(const char *env_cachename)
 {
 	krb5_error_code ret;
 	krb5_ccache cc;
+	char *cachename;
+
+	if (env_cachename) {
+		if (setenv(ENV_NAME, env_cachename, 1))
+			syslog(LOG_DEBUG, "%s: failed to setenv %d\n", __func__, errno);
+	}
 
 	ret = krb5_cc_default(context, &cc);
 	if (ret) {
 		syslog(LOG_DEBUG, "%s: krb5_cc_default returned %d", __func__, ret);
 		return NULL;
+	}
+
+	ret = krb5_cc_get_full_name(context, cc, &cachename);
+	if (ret) {
+		syslog(LOG_DEBUG, "%s: krb5_cc_get_full_name failed: %d\n", __func__, ret);
+	} else {
+		syslog(LOG_DEBUG, "%s: default ccache is %s\n", __func__, cachename);
+		krb5_free_string(context, cachename);
 	}
 
 	if (!get_tgt_time(cc)) {
@@ -231,7 +354,6 @@ get_default_cc(void)
 	}
 	return cc;
 }
-
 
 static krb5_ccache
 init_cc_from_keytab(const char *keytab_name, const char *user)
@@ -723,10 +845,11 @@ lowercase_string(char *c)
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: %s [ -K /path/to/keytab] [-k /path/to/krb5.conf] [-t] [-v] [-l] key_serial\n", prog);
+	fprintf(stderr, "Usage: %s [ -K /path/to/keytab] [-k /path/to/krb5.conf] [-E] [-t] [-v] [-l] key_serial\n", prog);
 }
 
 static const struct option long_options[] = {
+	{"no-env-probe", 0, NULL, 'E'},
 	{"krb5conf", 1, NULL, 'k'},
 	{"legacy-uid", 0, NULL, 'l'},
 	{"trust-dns", 0, NULL, 't'},
@@ -745,13 +868,14 @@ int main(const int argc, char *const argv[])
 	unsigned int have;
 	long rc = 1;
 	int c;
-	bool try_dns = false, legacy_uid = false;
+	bool try_dns = false, legacy_uid = false , env_probe = true;
 	char *buf;
 	char hostbuf[NI_MAXHOST], *host;
 	struct decoded_args arg;
 	const char *oid;
 	uid_t uid;
 	char *keytab_name = NULL;
+	char *env_cachename = NULL;
 	krb5_ccache ccache = NULL;
 	struct passwd *pw;
 
@@ -760,10 +884,14 @@ int main(const int argc, char *const argv[])
 
 	openlog(prog, 0, LOG_DAEMON);
 
-	while ((c = getopt_long(argc, argv, "ck:K:ltv", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "cEk:K:ltv", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'c':
 			/* legacy option -- skip it */
+			break;
+		case 'E':
+			/* skip probing initiating process env */
+			env_probe = false;
 			break;
 		case 't':
 			try_dns = true;
@@ -790,7 +918,7 @@ int main(const int argc, char *const argv[])
 		}
 	}
 
-	if (trim_capabilities(false))
+	if (trim_capabilities(env_probe))
 		goto out;
 
 	/* is there a key? */
@@ -890,6 +1018,13 @@ int main(const int argc, char *const argv[])
 		goto out;
 	}
 
+	/*
+	 * Must do this before setuid, as we need elevated capabilities to
+	 * look at the environ file.
+	 */
+	env_cachename =
+		get_cachename_from_process_env(env_probe ?  arg.pid : 0);
+
 	rc = setuid(uid);
 	if (rc == -1) {
 		syslog(LOG_ERR, "setuid: %s", strerror(errno));
@@ -908,7 +1043,7 @@ int main(const int argc, char *const argv[])
 		goto out;
 	}
 
-	ccache = get_default_cc();
+	ccache = get_existing_cc(env_cachename);
 	/* Couldn't find credcache? Try to use keytab */
 	if (ccache == NULL && arg.username != NULL)
 		ccache = init_cc_from_keytab(keytab_name, arg.username);
@@ -1061,6 +1196,7 @@ out:
 	SAFE_FREE(arg.ip);
 	SAFE_FREE(arg.username);
 	SAFE_FREE(keydata);
+	SAFE_FREE(env_cachename);
 	syslog(LOG_DEBUG, "Exit status %ld", rc);
 	return rc;
 }
