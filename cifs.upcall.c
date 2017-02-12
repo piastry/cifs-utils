@@ -685,7 +685,8 @@ int main(const int argc, char *const argv[])
 	size_t datalen;
 	unsigned int have;
 	long rc = 1;
-	int c, try_dns = 0, legacy_uid = 0;
+	int c;
+	bool try_dns = false, legacy_uid = false;
 	char *buf;
 	char hostbuf[NI_MAXHOST], *host;
 	struct decoded_args arg;
@@ -705,7 +706,7 @@ int main(const int argc, char *const argv[])
 			/* legacy option -- skip it */
 			break;
 		case 't':
-			try_dns++;
+			try_dns = true;
 			break;
 		case 'k':
 			if (setenv("KRB5_CONFIG", optarg, 1) != 0) {
@@ -717,7 +718,7 @@ int main(const int argc, char *const argv[])
 			keytab_name = optarg;
 			break;
 		case 'l':
-			legacy_uid++;
+			legacy_uid = true;
 			break;
 		case 'v':
 			rc = 0;
@@ -899,7 +900,7 @@ retry_new_hostname:
 		if (rc)
 			break;
 
-		try_dns = 0;
+		try_dns = false;
 		host = hostbuf;
 		goto retry_new_hostname;
 	default:
