@@ -46,6 +46,8 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <ctype.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include "replace.h"
 #include "data_blob.h"
@@ -694,6 +696,7 @@ int main(const int argc, char *const argv[])
 	uid_t uid;
 	char *keytab_name = NULL;
 	krb5_ccache ccache = NULL;
+	struct passwd *pw;
 
 	hostbuf[0] = '\0';
 	memset(&arg, 0, sizeof(arg));
@@ -795,15 +798,49 @@ int main(const int argc, char *const argv[])
 		goto out;
 	}
 
+	/*
+	 * The kernel doesn't pass down the gid, so we resort here to scraping
+	 * one out of the passwd nss db. Note that this might not reflect the
+	 * actual gid of the process that initiated the upcall. While we could
+	 * scrape that out of /proc, relying on that is a bit more risky.
+	 */
+	pw = getpwuid(uid);
+	if (!pw) {
+		syslog(LOG_ERR, "Unable to find pw entry for uid %d: %s\n",
+			uid, strerror(errno));
+		rc = 1;
+		goto out;
+	}
+
+	/*
+	 * The kernel should send down a zero-length grouplist already, but
+	 * just to be on the safe side...
+	 */
+	rc = setgroups(0, NULL);
+	if (rc == -1) {
+		syslog(LOG_ERR, "setgroups: %s", strerror(errno));
+		rc = 1;
+		goto out;
+	}
+
+	rc = setgid(pw->pw_gid);
+	if (rc == -1) {
+		syslog(LOG_ERR, "setgid: %s", strerror(errno));
+		rc = 1;
+		goto out;
+	}
+
 	rc = setuid(uid);
 	if (rc == -1) {
 		syslog(LOG_ERR, "setuid: %s", strerror(errno));
+		rc = 1;
 		goto out;
 	}
 
 	rc = krb5_init_context(&context);
 	if (rc) {
 		syslog(LOG_ERR, "unable to init krb5 context: %ld", rc);
+		rc = 1;
 		goto out;
 	}
 
