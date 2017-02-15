@@ -54,6 +54,10 @@
 #include "spnego.h"
 #include "cifs_spnego.h"
 
+#ifdef HAVE_LIBCAP_NG
+#include <cap-ng.h>
+#endif
+
 static krb5_context	context;
 static const char	*prog = "cifs.upcall";
 
@@ -62,6 +66,59 @@ typedef enum _sectype {
 	KRB5,
 	MS_KRB5
 } sectype_t;
+
+#ifdef HAVE_LIBCAP_NG
+static int
+trim_capabilities(bool need_ptrace)
+{
+	capng_clear(CAPNG_SELECT_BOTH);
+
+	/*
+	 * Need PTRACE and DAC_OVERRIDE for environment scraping, SETGID to
+	 * change gid and grouplist, and SETUID to change uid.
+	 */
+	if (capng_updatev(CAPNG_ADD, CAPNG_PERMITTED|CAPNG_EFFECTIVE,
+			CAP_SETUID, CAP_SETGID, CAP_DAC_OVERRIDE, -1)) {
+		syslog(LOG_ERR, "%s: Unable to update capability set: %m\n", __func__);
+		return 1;
+	}
+
+	if (need_ptrace &&
+	    capng_update(CAPNG_ADD, CAPNG_PERMITTED|CAPNG_EFFECTIVE, CAP_SYS_PTRACE)) {
+		syslog(LOG_ERR, "%s: Unable to update capability set: %m\n", __func__);
+		return 1;
+	}
+
+	if (capng_apply(CAPNG_SELECT_BOTH)) {
+		syslog(LOG_ERR, "%s: Unable to apply capability set: %m\n", __func__);
+		return 1;
+	}
+	return 0;
+}
+
+static int
+drop_all_capabilities(void)
+{
+	capng_clear(CAPNG_SELECT_BOTH);
+	if (capng_apply(CAPNG_SELECT_BOTH)) {
+		syslog(LOG_ERR, "%s: Unable to apply capability set: %m\n", __func__);
+		return 1;
+	}
+	return 0;
+}
+#else /* HAVE_LIBCAP_NG */
+static int
+trim_capabilities(void)
+{
+	return 0;
+}
+
+static int
+drop_all_capabilities(void)
+{
+	return 0;
+}
+#endif /* HAVE_LIBCAP_NG */
 
 /*
  * smb_krb5_principal_get_realm
@@ -733,6 +790,9 @@ int main(const int argc, char *const argv[])
 		}
 	}
 
+	if (trim_capabilities(false))
+		goto out;
+
 	/* is there a key? */
 	if (argc <= optind) {
 		usage();
@@ -836,6 +896,10 @@ int main(const int argc, char *const argv[])
 		rc = 1;
 		goto out;
 	}
+
+	rc = drop_all_capabilities();
+	if (rc)
+		goto out;
 
 	rc = krb5_init_context(&context);
 	if (rc) {

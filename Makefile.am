@@ -16,7 +16,7 @@ clean-local: clean-local-upcall clean-local-idmap clean-local-cifsacl
 if CONFIG_CIFSUPCALL
 sbin_PROGRAMS += cifs.upcall
 cifs_upcall_SOURCES = cifs.upcall.c data_blob.c asn1.c spnego.c
-cifs_upcall_LDADD = -ltalloc -lkeyutils $(KRB5_LDADD)
+cifs_upcall_LDADD = -ltalloc -lkeyutils $(KRB5_LDADD) $(CAPNG_LDADD)
 man_MANS += cifs.upcall.8
 
 #
