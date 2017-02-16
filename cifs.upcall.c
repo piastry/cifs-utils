@@ -70,22 +70,21 @@ typedef enum _sectype {
 
 #ifdef HAVE_LIBCAP_NG
 static int
-trim_capabilities(bool need_ptrace)
+trim_capabilities(bool need_environ)
 {
 	capng_clear(CAPNG_SELECT_BOTH);
 
-	/*
-	 * Need PTRACE and DAC_OVERRIDE for environment scraping, SETGID to
-	 * change gid and grouplist, and SETUID to change uid.
-	 */
+	/* SETUID and SETGID to change uid, gid, and grouplist */
 	if (capng_updatev(CAPNG_ADD, CAPNG_PERMITTED|CAPNG_EFFECTIVE,
-			CAP_SETUID, CAP_SETGID, CAP_DAC_OVERRIDE, -1)) {
+			CAP_SETUID, CAP_SETGID, -1)) {
 		syslog(LOG_ERR, "%s: Unable to update capability set: %m\n", __func__);
 		return 1;
 	}
 
-	if (need_ptrace &&
-	    capng_update(CAPNG_ADD, CAPNG_PERMITTED|CAPNG_EFFECTIVE, CAP_SYS_PTRACE)) {
+	 /* Need PTRACE and READ_SEARCH for /proc/pid/environ scraping */
+	if (need_environ &&
+	    capng_updatev(CAPNG_ADD, CAPNG_PERMITTED|CAPNG_EFFECTIVE,
+			CAP_SYS_PTRACE, CAP_DAC_READ_SEARCH, -1)) {
 		syslog(LOG_ERR, "%s: Unable to update capability set: %m\n", __func__);
 		return 1;
 	}
@@ -109,7 +108,7 @@ drop_all_capabilities(void)
 }
 #else /* HAVE_LIBCAP_NG */
 static int
-trim_capabilities(void)
+trim_capabilities(bool unused)
 {
 	return 0;
 }
