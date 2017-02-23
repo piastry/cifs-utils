@@ -44,7 +44,10 @@ Normally, cifs.upcall will probe the environment variable space of the process
 that initiated the upcall in order to fetch the value of $KRB5CCNAME. This can
 assist the program with finding credential caches in non-default locations. If
 this option is set, then the program won't do this and will rely on finding
-credcaches in the default locations specified in krb5.conf.
+credcaches in the default locations specified in krb5.conf. Note that this is
+never performed when the uid is 0. The default credcache location is always
+used when the uid is 0, regardless of the environment variable setting in the
+process.
 .RE
 .PP
 \--krb5conf=/path/to/krb5.conf|-k /path/to/krb5.conf

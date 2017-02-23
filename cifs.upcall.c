@@ -1038,11 +1038,19 @@ int main(const int argc, char *const argv[])
 	}
 
 	/*
+	 * We can't reasonably do this for root. When mounting a DFS share,
+	 * for instance we can end up with creds being overridden, but the env
+	 * variable left intact.
+	 */
+	if (uid == 0)
+		env_probe = false;
+
+	/*
 	 * Must do this before setuid, as we need elevated capabilities to
 	 * look at the environ file.
 	 */
 	env_cachename =
-		get_cachename_from_process_env(env_probe ?  arg.pid : 0);
+		get_cachename_from_process_env(env_probe ? arg.pid : 0);
 
 	rc = setuid(uid);
 	if (rc == -1) {
