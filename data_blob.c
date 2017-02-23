@@ -20,8 +20,11 @@
 
 #include <string.h>
 
-#include "replace.h"
 #include "data_blob.h"
+
+#ifndef ZERO_STRUCT
+#define ZERO_STRUCT(x) memset((char *)&(x), 0, sizeof(x))
+#endif
 
 const DATA_BLOB data_blob_null = { NULL, 0 };
 
