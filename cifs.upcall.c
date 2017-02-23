@@ -379,6 +379,12 @@ init_cc_from_keytab(const char *keytab_name, const char *user)
 
 	memset((char *) &my_creds, 0, sizeof(my_creds));
 
+	/*
+	 * Unset the environment variable, if any. If we're creating our own
+	 * credcache here, stick it in the default location.
+	 */
+	unsetenv(ENV_NAME);
+
 	if (keytab_name)
 		ret = krb5_kt_resolve(context, keytab_name, &keytab);
 	else
