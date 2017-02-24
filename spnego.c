@@ -21,8 +21,8 @@
 
 #include <talloc.h>
 #include <stdint.h>
+#include <stdbool.h>
 
-#include "replace.h"
 #include "data_blob.h"
 #include "asn1.h"
 #include "spnego.h"
