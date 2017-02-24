@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_INIT([cifs-utils],[6.6.1],[linux-cifs@vger.kernel.org],[cifs-utils],[https://wiki.samba.org/index.php/LinuxCIFS_utils])
-AC_CONFIG_SRCDIR([replace.h])
+AC_CONFIG_SRCDIR([data_blob.h])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile contrib/Makefile contrib/request-key.d/Makefile])
 AC_CONFIG_MACRO_DIR(aclocal)
