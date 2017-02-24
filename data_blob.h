@@ -23,10 +23,6 @@
 #ifndef _SAMBA_DATABLOB_H_
 #define _SAMBA_DATABLOB_H_
 
-#ifndef _PUBLIC_
-#define _PUBLIC_
-#endif
-
 #include <talloc.h>
 #include <stdint.h>
 
@@ -53,17 +49,17 @@ struct data_blob_list_item {
  construct a data blob, must be freed with data_blob_free()
  you can pass NULL for p and get a blank data blob
 **/
-_PUBLIC_ DATA_BLOB data_blob_named(const void *p, size_t length, const char *name);
+DATA_BLOB data_blob_named(const void *p, size_t length, const char *name);
 
 /**
  construct a data blob, using supplied TALLOC_CTX
 **/
-_PUBLIC_ DATA_BLOB data_blob_talloc_named(TALLOC_CTX *mem_ctx, const void *p, size_t length, const char *name);
+DATA_BLOB data_blob_talloc_named(TALLOC_CTX *mem_ctx, const void *p, size_t length, const char *name);
 
 /**
 free a data blob
 **/
-_PUBLIC_ void data_blob_free(DATA_BLOB *d);
+void data_blob_free(DATA_BLOB *d);
 
 extern const DATA_BLOB data_blob_null;
 

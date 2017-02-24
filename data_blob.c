@@ -37,7 +37,7 @@ const DATA_BLOB data_blob_null = { NULL, 0 };
  construct a data blob, must be freed with data_blob_free()
  you can pass NULL for p and get a blank data blob
 **/
-_PUBLIC_ DATA_BLOB data_blob_named(const void *p, size_t length, const char *name)
+DATA_BLOB data_blob_named(const void *p, size_t length, const char *name)
 {
 	DATA_BLOB ret;
 
@@ -63,7 +63,7 @@ _PUBLIC_ DATA_BLOB data_blob_named(const void *p, size_t length, const char *nam
 /**
  construct a data blob, using supplied TALLOC_CTX
 **/
-_PUBLIC_ DATA_BLOB data_blob_talloc_named(TALLOC_CTX *mem_ctx, const void *p, size_t length, const char *name)
+DATA_BLOB data_blob_talloc_named(TALLOC_CTX *mem_ctx, const void *p, size_t length, const char *name)
 {
 	DATA_BLOB ret = data_blob_named(p, length, name);
 
@@ -76,7 +76,7 @@ _PUBLIC_ DATA_BLOB data_blob_talloc_named(TALLOC_CTX *mem_ctx, const void *p, si
 /**
 free a data blob
 **/
-_PUBLIC_ void data_blob_free(DATA_BLOB *d)
+void data_blob_free(DATA_BLOB *d)
 {
 	if (d) {
 		talloc_free(d->data);
