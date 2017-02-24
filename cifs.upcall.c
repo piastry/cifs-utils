@@ -410,9 +410,9 @@ init_cc_from_keytab(const char *keytab_name, const char *user)
 		goto icfk_cleanup;
 	}
 
-	ret = krb5_cc_default(context, &cc);
+	ret = krb5_cc_resolve(context, "MEMORY:", &cc);
 	if (ret) {
-		syslog(LOG_DEBUG, "krb5_cc_default: %d", (int)ret);
+		syslog(LOG_DEBUG, "krb5_cc_resolve: %d", (int)ret);
 		goto icfk_cleanup;
 	}
 
