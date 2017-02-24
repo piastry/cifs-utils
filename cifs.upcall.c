@@ -82,8 +82,6 @@ typedef enum _sectype {
 #define KRB5_KEY_DATA_CAST      krb5_octet
 #endif
 
-#define SAFE_FREE(x) do { if ((x) != NULL) {free(x); x = NULL; } } while (0)
-
 #ifdef HAVE_LIBCAP_NG
 static int
 trim_capabilities(bool need_environ)
@@ -162,7 +160,7 @@ static char *cifs_krb5_principal_get_realm(krb5_principal principal)
 #if !defined(HAVE_KRB5_FREE_UNPARSED_NAME)
 static void krb5_free_unparsed_name(krb5_context context, char *val)
 {
-	SAFE_FREE(val);
+	free(val);
 }
 #endif
 
@@ -650,7 +648,7 @@ decode_key_description(const char *desc, struct decoded_args *arg)
 				len = pos - tkn;
 
 			len -= 5;
-			SAFE_FREE(arg->hostname);
+			free(arg->hostname);
 			arg->hostname = strndup(tkn + 5, len);
 			if (arg->hostname == NULL) {
 				syslog(LOG_ERR, "Unable to allocate memory");
@@ -665,7 +663,7 @@ decode_key_description(const char *desc, struct decoded_args *arg)
 				len = pos - tkn;
 
 			len -= 4;
-			SAFE_FREE(arg->ip);
+			free(arg->ip);
 			arg->ip = strndup(tkn + 4, len);
 			if (arg->ip == NULL) {
 				syslog(LOG_ERR, "Unable to allocate memory");
@@ -680,7 +678,7 @@ decode_key_description(const char *desc, struct decoded_args *arg)
 				len = pos - tkn;
 
 			len -= 5;
-			SAFE_FREE(arg->username);
+			free(arg->username);
 			arg->username = strndup(tkn + 5, len);
 			if (arg->username == NULL) {
 				syslog(LOG_ERR, "Unable to allocate memory");
@@ -968,7 +966,7 @@ int main(const int argc, char *const argv[])
 	}
 
 	have = decode_key_description(buf, &arg);
-	SAFE_FREE(buf);
+	free(buf);
 	if ((have & DKD_MUSTHAVE_SET) != DKD_MUSTHAVE_SET) {
 		syslog(LOG_ERR, "unable to get necessary params from key "
 		       "description (0x%x)", have);
@@ -1207,11 +1205,11 @@ out:
 		krb5_cc_close(context, ccache);
 	if (context)
 		krb5_free_context(context);
-	SAFE_FREE(arg.hostname);
-	SAFE_FREE(arg.ip);
-	SAFE_FREE(arg.username);
-	SAFE_FREE(keydata);
-	SAFE_FREE(env_cachename);
+	free(arg.hostname);
+	free(arg.ip);
+	free(arg.username);
+	free(keydata);
+	free(env_cachename);
 	syslog(LOG_DEBUG, "Exit status %ld", rc);
 	return rc;
 }

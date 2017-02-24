@@ -61,6 +61,7 @@
 #include "mount.h"
 #include "util.h"
 #include "resolve_host.h"
+#include "data_blob.h"
 
 #ifndef MS_MOVE 
 #define MS_MOVE 8192 
@@ -100,13 +101,6 @@
 
 /* Max password size. */
 #define MOUNT_PASSWD_SIZE 512
-
-
-
-#ifndef SAFE_FREE
-#define SAFE_FREE(x) do { if ((x) != NULL) {free(x); x = NULL; } } while (0)
-#endif
-
 
 /*
  * mount.cifs has been the subject of many "security" bugs that have arisen
@@ -621,7 +615,7 @@ return_i:
 	/* make sure passwords are scrubbed from memory */
 	if (line_buf != NULL)
 		memset(line_buf, 0, line_buf_size);
-	SAFE_FREE(line_buf);
+	free(line_buf);
 	return i;
 }
 
@@ -1516,7 +1510,7 @@ add_mtab(char *devname, char *mountpoint, unsigned long flags, const char *fstyp
 		rc = EX_FILEIO;
 	}
 	unlock_mtab();
-	SAFE_FREE(mountent.mnt_opts);
+	free(mountent.mnt_opts);
 add_mtab_exit:
 	toggle_dac_capability(1, 0);
 	sigprocmask(SIG_SETMASK, &oldmask, NULL);
@@ -2152,7 +2146,7 @@ mount_exit:
 		memset(parsed_info->password, 0, sizeof(parsed_info->password));
 		munmap(parsed_info, sizeof(*parsed_info));
 	}
-	SAFE_FREE(options);
-	SAFE_FREE(orgoptions);
+	free(options);
+	free(orgoptions);
 	return rc;
 }
