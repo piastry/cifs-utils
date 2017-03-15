@@ -61,7 +61,6 @@
 #include "mount.h"
 #include "util.h"
 #include "resolve_host.h"
-#include "data_blob.h"
 
 #ifndef MS_MOVE 
 #define MS_MOVE 8192 
