@@ -440,6 +440,11 @@ The default in mainline kernel versions prior to v3.8 was sec=ntlm. In v3.8, the
 If the server requires signing during protocol negotiation, then it may be enabled automatically. Packet signing may also be enabled automatically if it's enabled in /proc/fs/cifs/SecurityFlags.
 .RE
 .PP
+seal
+.RS 4
+Request encryption at the SMB layer. Encryption is only supported in SMBv3 and above. The encryption algorithm used is AES-128-CCM.
+.RE
+.PP
 nobrl
 .RS 4
 Do not send byte range lock requests to the server\&. This is necessary for certain applications that break with cifs style mandatory byte range locks (and most cifs servers do not yet support requesting advisory byte range locks)\&.
@@ -592,6 +597,17 @@ SMB protocol version. Allowed values are:
 .IP \(bu 2.3
 .\}
 3.0 - The SMBv3.0 protocol that was introduced in Microsoft Windows 8 and Windows Server 2012.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+3.1.1 or 3.11 - The SMBv3.1.1 protocol that was introduced in Microsoft Windows Server 2016.
 .RE
 .PP
 Note too that while this option governs the protocol version used, not all features of each version are available.
