@@ -1002,6 +1002,7 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 				"WARNING: CIFS mount option 'fmask' is\
 				 deprecated. Use 'file_mode' instead.\n");
 			data = "file_mode";	/* BB fix this */
+			/* Fallthrough */
 		case OPT_FILE_MODE:
 			if (!value || !*value) {
 				fprintf(stderr,
@@ -1022,6 +1023,7 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 				"WARNING: CIFS mount option 'dmask' is\
 				 deprecated. Use 'dir_mode' instead.\n");
 			data = "dir_mode";
+			/* Fallthrough */
 		case OPT_DIR_MODE:
 			if (!value || !*value) {
 				fprintf(stderr,
