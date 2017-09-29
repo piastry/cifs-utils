@@ -50,6 +50,11 @@ AC_ARG_ENABLE(systemd,
 	enable_systemd=$enableval,
 	enable_systemd="maybe")
 
+AC_ARG_ENABLE(man,
+	[AS_HELP_STRING([--enable-man],[Enable generation and installation of man pages @<:@default=yes@:>@])],
+	enable_man=$enableval,
+	enable_man="maybe")
+
 # "with" options
 AC_ARG_WITH(idmap-plugin,
 	[AS_HELP_STRING([--with-idmap-plugin=/path/to/plugin],[Define the path to the plugin that the idmapping infrastructure should use @<:@default=/etc/cifs-utils/idmap-plugin@:>@])],
@@ -245,11 +250,27 @@ if test $enable_systemd != "no"; then
 	AC_DEFINE(ENABLE_SYSTEMD, 1, [Enable systemd specific behavior for mount.cifs])
 fi
 
+# if docs are not disabled, check if pod2man is available
+if test $enable_man != "no"; then
+	AC_CHECK_PROG(have_pod2man, pod2man, yes, no)
+	if test $have_pod2man = "no"; then
+		if test $enable_man = "yes"; then
+			AC_MSG_ERROR([pod2man not found: cannot generate man pages, consider installing perl.])
+		else
+			AC_MSG_WARN([pod2man not found: cannot generate man pages, consider installing perl. Disabling man page generation.])
+			enable_man="no"
+		fi
+	else
+		enable_man="yes"
+	fi
+fi
+
 # MIT krb5 < 1.7 does not have this declaration but does have the symbol
 AC_CHECK_DECLS(krb5_auth_con_set_req_cksumtype, [], [], [#include <krb5.h>])
 
 LIBS=$cu_saved_libs
 
+AM_CONDITIONAL(CONFIG_MAN, [test "$enable_man" != "no"])
 AM_CONDITIONAL(CONFIG_CIFSUPCALL, [test "$enable_cifsupcall" != "no"])
 AM_CONDITIONAL(CONFIG_CIFSCREDS, [test "$enable_cifscreds" != "no"])
 AM_CONDITIONAL(CONFIG_CIFSIDMAP, [test "$enable_cifsidmap" != "no"])

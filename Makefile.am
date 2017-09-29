@@ -5,98 +5,114 @@ root_sbindir = $(ROOTSBINDIR)
 root_sbin_PROGRAMS = mount.cifs
 mount_cifs_SOURCES = mount.cifs.c mtab.c resolve_host.c util.c
 mount_cifs_LDADD = $(LIBCAP) $(CAPNG_LDADD) $(RT_LDADD)
-
-man_MANS = mount.cifs.8
 include_HEADERS = cifsidmap.h
+pod_man_pages = mount.cifs.8
 
+#
+# Generate man pages troff source from POD format
+#
+
+man_MANS=
+
+POD2MAN = pod2man -s $$(echo $@ | sed 's,.*\([1-9]\)$$,\1,' ) \
+                  -c 'System Administration Tools' -u -r '' --stderr $< $@
+
+%.1: %.pod
+	$(POD2MAN)
+%.2: %.pod
+	$(POD2MAN)
+%.3: %.pod
+	$(POD2MAN)
+%.4: %.pod
+	$(POD2MAN)
+%.5: %.pod
+	$(POD2MAN)
+%.6: %.pod
+	$(POD2MAN)
+%.7: %.pod
+	$(POD2MAN)
+%.8: %.pod
+	$(POD2MAN)
+
+CLEANFILES =
 bin_PROGRAMS =
 sbin_PROGRAMS =
-clean-local: clean-local-upcall clean-local-idmap clean-local-cifsacl
 
 if CONFIG_CIFSUPCALL
 sbin_PROGRAMS += cifs.upcall
 cifs_upcall_SOURCES = cifs.upcall.c data_blob.c asn1.c spnego.c
 cifs_upcall_LDADD = -ltalloc -lkeyutils $(KRB5_LDADD) $(CAPNG_LDADD)
-man_MANS += cifs.upcall.8
-
+pod_man_pages += cifs.upcall.8
 #
 # Fix the pathnames in manpages. To prevent @label@ being replaced by m4, we
 # need to obfuscate the LHS of the regex (hence the trivial one character set).
 #
-cifs.upcall.8: cifs.upcall.8.in
+cifs.upcall.pod: cifs.upcall.pod.in
 	$(SED) 's,[@]sbindir@,$(sbindir),' $(srcdir)/$@.in > $@-t && mv $@-t $@
-endif
-
-clean-local-upcall:
-if CONFIG_CIFSUPCALL
-	rm -f cifs.upcall.8 cifs.upcall.8-t
 endif
 
 if CONFIG_CIFSCREDS
 bin_PROGRAMS += cifscreds
 cifscreds_SOURCES = cifscreds.c cifskey.c resolve_host.c util.c
 cifscreds_LDADD = -lkeyutils
-man_MANS += cifscreds.1
+
+pod_man_pages += cifscreds.1
+
 endif
 
 if CONFIG_CIFSIDMAP
 sbin_PROGRAMS += cifs.idmap
 cifs_idmap_SOURCES = cifs.idmap.c idmap_plugin.c
 cifs_idmap_LDADD = -lkeyutils -ldl
-man_MANS += cifs.idmap.8
-
-cifs.idmap.8: cifs.idmap.8.in
+pod_man_pages += cifs.idmap.8
+CLEANFILES += cifs.idmap.pod
+cifs.idmap.pod: cifs.idmap.pod.in
 	$(SED) -e 's,[@]sbindir@,$(sbindir),' -e 's,[@]pluginpath@,$(pluginpath),' $(srcdir)/$@.in > $@-t && mv $@-t $@
-endif
-
-clean-local-idmap:
-if CONFIG_CIFSIDMAP
-	rm -f cifs.idmap.8 cifs.idmap.8-t
 endif
 
 if CONFIG_CIFSACL
 bin_PROGRAMS += getcifsacl
 getcifsacl_SOURCES = getcifsacl.c idmap_plugin.c
 getcifsacl_LDADD = -ldl
-man_MANS += getcifsacl.1
 
-getcifsacl.1: getcifsacl.1.in
+pod_man_pages += getcifsacl.1
+CLEANFILES += getcifsacl.pod
+getcifsacl.pod: getcifsacl.pod.in
 	$(SED) 's,[@]pluginpath@,$(pluginpath),' $(srcdir)/$@.in > $@-t && mv $@-t $@
 
 bin_PROGRAMS += setcifsacl
 setcifsacl_SOURCES = setcifsacl.c idmap_plugin.c
 setcifsacl_LDADD = -ldl
-man_MANS += setcifsacl.1
 
-setcifsacl.1: setcifsacl.1.in
+pod_man_pages += setcifsacl.1
+CLEANFILES += setcifsacl.pod
+setcifsacl.pod: setcifsacl.pod.in
 	$(SED) 's,[@]pluginpath@,$(pluginpath),' $(srcdir)/$@.in > $@-t && mv $@-t $@
-endif
-
-clean-local-cifsacl:
-if CONFIG_CIFSACL
-	rm -f getcifsacl.1 getcifsacl.1-t
-	rm -f setcifsacl.1 setcifsacl.1-t
 endif
 
 if CONFIG_PLUGIN
 plugindir = $(pkglibdir)
 plugin_PROGRAMS = idmapwb.so
-man_MANS += idmapwb.8
-
 idmapwb.so: idmapwb.c
 	$(CC) $(DEFS) $(CFLAGS) $(AM_CFLAGS) $(WBCLIENT_CFLAGS) $(LDFLAGS) -shared -fpic -o $@ $+ $(WBCLIENT_LIBS)
 
-idmapwb.8: idmapwb.8.in
+pod_man_pages += idmapwb.8
+CLEANFILES += idmapwb.pod
+idmapwb.pod: idmapwb.pod.in
 	$(SED) 's,[@]pluginpath@,$(pluginpath),' $(srcdir)/$@.in > $@-t && mv $@-t $@
-
 endif
 
 if CONFIG_PAM
 pam_PROGRAMS = pam_cifscreds.so
-
+pod_man_pages += pam_cifscreds.8
 pam_cifscreds.so: pam_cifscreds.c cifskey.c resolve_host.c util.c
 	$(CC) $(DEFS) $(CFLAGS) $(AM_CFLAGS) $(LDFLAGS) -shared -fpic -o $@ $+ -lpam -lkeyutils
-man_MANS += pam_cifscreds.8
+
+endif
+
+if CONFIG_MAN
+man_MANS += $(pod_man_pages)
+CLEANFILES += $(pod_man_pages)
 endif
 
 SUBDIRS = contrib
