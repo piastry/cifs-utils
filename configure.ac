@@ -250,14 +250,14 @@ if test $enable_systemd != "no"; then
 	AC_DEFINE(ENABLE_SYSTEMD, 1, [Enable systemd specific behavior for mount.cifs])
 fi
 
-# if docs are not disabled, check if pod2man is available
+# if docs are not disabled, check if rst2man is available
 if test $enable_man != "no"; then
-	AC_CHECK_PROG(have_pod2man, pod2man, yes, no)
-	if test $have_pod2man = "no"; then
+	AC_CHECK_PROG(have_rst2man, rst2man, yes, no)
+	if test $have_rst2man = "no"; then
 		if test $enable_man = "yes"; then
-			AC_MSG_ERROR([pod2man not found: cannot generate man pages, consider installing perl.])
+			AC_MSG_ERROR([rst2man not found: cannot generate man pages, consider installing perl.])
 		else
-			AC_MSG_WARN([pod2man not found: cannot generate man pages, consider installing perl. Disabling man page generation.])
+			AC_MSG_WARN([rst2man not found: cannot generate man pages, consider installing perl. Disabling man page generation.])
 			enable_man="no"
 		fi
 	else
