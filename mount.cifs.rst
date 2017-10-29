@@ -517,7 +517,7 @@ prefixpath=arg
 vers=arg
   SMB protocol version. Allowed values are:
 
-  - 1.0 - The classic CIFS/SMBv1 protocol. This is the default.
+  - 1.0 - The classic CIFS/SMBv1 protocol.
   - 2.0 - The SMBv2.002 protocol. This was initially introduced in
     Windows Vista Service Pack 1, and Windows Server 2008. Note that
     the initial release version of Windows Vista spoke a slightly
@@ -528,6 +528,11 @@ vers=arg
 
   Note too that while this option governs the protocol version used, not
   all features of each version are available.
+
+  The default since v4.13.5 is for the client and server to negotiate
+  the highest possible version greater than or equal to ``2.1``. In
+  kernels prior to v4.13, the default was ``1.0``. For kernels
+  between v4.13 and v4.13.5 the default is ``3.0``.
 
 --verbose
   Print additional debugging information for the mount. Note that this
@@ -857,4 +862,3 @@ Steve French
 The maintainer of the Linux cifs vfs and the userspace tool mount.cifs
 is Steve French. The Linux CIFS Mailing list is the preferred place to
 ask questions regarding these programs.
-
