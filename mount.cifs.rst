@@ -48,7 +48,7 @@ OPTIONS
 *******
 
 
-username=arg
+username=arg|user=arg
   specifies the username to connect as. If this is not
   given, then the environment variable USER is used.
 
@@ -64,7 +64,7 @@ username=arg
   non-superuser mount. It is therefore recommended to use the full
   ``username=`` option name.
 
-password=arg
+password=arg|pass=arg
   specifies the CIFS password. If this option is not given then the
   environment variable PASSWD is used. If the password is not specified
   directly or indirectly via an argument to mount, mount.cifs will
@@ -76,7 +76,7 @@ password=arg
   variable or via a credentials file (see below) or entered at the
   password prompt will be read correctly.
 
-credentials=filename
+credentials=filename|cred=filename
   specifies a file that contains a username and/or password and
   optionally the name of the workgroup. The format of the file is::
 
@@ -159,12 +159,12 @@ dir_mode=arg
   If the server does not support the CIFS Unix extensions this overrides
   the default mode for directories.
 
-ip=arg
+ip=arg|addr=arg
   sets the destination IP address. This option is set automatically if
   the server name portion of the requested UNC name can be resolved so
   rarely needs to be specified by the user.
 
-domain=arg
+domain=arg|dom=arg|workgroup=arg
   sets the domain (workgroup) of the user.
 
 guest
