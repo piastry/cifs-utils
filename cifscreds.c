@@ -487,6 +487,9 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (optind >= argc)
+		return usage();
+
 	/* find the best fit command */
 	best = NULL;
 	n = strnlen(argv[optind], MAX_COMMAND_SIZE);
