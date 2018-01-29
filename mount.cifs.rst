@@ -385,6 +385,15 @@ mfsymlinks
   option. Minshall+French symlinks are used even if the server supports
   the CIFS Unix Extensions.
 
+echo_interval=n
+  sets the interval at which echo requests are sent to the server on an
+  idling connection. This setting also affects the time required for a
+  connection to an unresponsive server to timeout. Here n is the echo
+  interval in seconds. The reconnection happens at twice the value of the
+  echo_interval set for an unresponsive server.
+  If this option is not given then the default value of 60 seconds is used.
+  The minimum tunable value is 1 second and maximum can go up to 600 seconds.
+
 serverino
   Use inode numbers (unique persistent file identifiers) returned by the
   server instead of automatically generating temporary inode numbers on
