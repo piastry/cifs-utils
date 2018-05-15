@@ -237,6 +237,16 @@ cache=arg
   The default in kernels prior to 3.7 was ``loose``. As of kernel 3.7 the
   default is ``strict``.
 
+handlecache
+  (default) In SMB2 and above, the client often has to open the root
+  of the share (empty path) in various places during mount, path
+  revalidation and the statfs(2) system call. This option cuts
+  redundant round trip traffic (opens and closes) by simply keeping
+  the directory handle for the root around once opened.
+
+nohandlecache
+  Disable caching of the share root directory handle.
+
 directio
   Do not do inode data caching on files opened on this mount. This
   precludes mmaping files on this mount. In some cases with fast
