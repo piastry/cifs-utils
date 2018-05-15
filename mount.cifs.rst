@@ -47,7 +47,6 @@ unmounted (usually via the ``umount`` utility).
 OPTIONS
 *******
 
-
 username=arg|user=arg
   specifies the username to connect as. If this is not
   given, then the environment variable USER is used.
@@ -84,9 +83,9 @@ credentials=filename|cred=filename
    password=value
    domain=value
 
- This is preferred over having passwords in plaintext in a shared file,
- such as ``/etc/fstab`` . Be sure to protect any credentials file
- properly.
+  This is preferred over having passwords in plaintext in a shared file,
+  such as */etc/fstab* . Be sure to protect any credentials file
+  properly.
 
 uid=arg
   sets the uid that will own all files or directories on the mounted
@@ -558,7 +557,7 @@ It's generally preferred to use forward slashes (/) as a delimiter in
 service names. They are considered to be the "universal delimiter"
 since they are generally not allowed to be embedded within path
 components on Windows machines and the client can convert them to
-backslashes (\) unconditionally. Conversely, backslash characters are
+backslashes (\\) unconditionally. Conversely, backslash characters are
 allowed by POSIX to be part of a path component, and can't be
 automatically converted in the same way.
 
