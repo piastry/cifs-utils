@@ -1,0 +1,240 @@
+#!/usr/bin/env python3
+#
+# Script to check for inconsistencies between documented mount options
+# and implemented kernel options.
+# Copyright (C) 2018 Aurelien Aptel (aaptel@suse.com)
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import os
+import sys
+import re
+import subprocess
+import argparse
+from pprint import pprint as P
+
+def extract_canonical_opts(s):
+    """
+    Return list of option names present in s.
+    e.g "opt1=a|opt2=d" => ["opt1", "opt2"])
+    """
+    opts = s.split("|")
+    res = []
+    for o in opts:
+        x = o.split("=")
+        res.append(x[0])
+    return res
+
+def extract_kernel_opts(fn):
+    STATE_BASE = 0
+    STATE_DEF = 1
+    STATE_USE = 2
+    STATE_EXIT = 3
+
+    state = STATE_BASE
+    fmt2enum = {}
+    enum2code = {}
+    code = ''
+    current_opt = ''
+    rx = RX()
+
+    def code_add(s):
+        if current_opt != '':
+            if current_opt not in enum2code:
+                enum2code[current_opt] = ''
+            enum2code[current_opt] += s
+
+    with open(fn) as f:
+        for s in f.readlines():
+            if state == STATE_EXIT:
+                break
+
+            elif state == STATE_BASE:
+                if rx.search(r'cifs_mount_option_tokens.*\{', s):
+                    state = STATE_DEF
+                elif rx.search(r'^cifs_parse_mount_options', s):
+                    state = STATE_USE
+
+            elif state == STATE_DEF:
+                if rx.search(r'(Opt_[a-zA-Z0-9_]+)\s*,\s*"([^"]+)"', s):
+                    fmt = rx.group(2)
+                    opts = extract_canonical_opts(fmt)
+                    assert(len(opts) == 1)
+                    name = opts[0]
+                    fmt2enum[name] = {'enum':rx.group(1), 'fmt':fmt}
+                elif rx.search(r'^};', s):
+                    state = STATE_BASE
+
+            elif state == STATE_USE:
+                if rx.search(r'^\s*case (Opt_[a-zA-Z0-9_]+)', s):
+                    current_opt = rx.group(1)
+                elif current_opt != '' and rx.search(r'^\s*default:', s):
+                    state = STATE_EXIT
+                else:
+                    code_add(s)
+    return fmt2enum, enum2code
+
+def chomp(s):
+    if s[-1] == '\n':
+        return s[:-1]
+    return s
+
+def extract_man_opts(fn):
+    STATE_EXIT = 0
+    STATE_BASE = 1
+    STATE_OPT = 2
+
+    state = STATE_BASE
+    rx = RX()
+    opts = {}
+
+    with open(fn) as f:
+        for s in f.readlines():
+            if state == STATE_EXIT:
+                break
+
+            elif state == STATE_BASE:
+                if rx.search(r'^OPTION', s):
+                    state = STATE_OPT
+
+            elif state == STATE_OPT:
+                if rx.search('^[a-z]', s) and len(s) < 50:
+                    s = chomp(s)
+                    names = extract_canonical_opts(s)
+                    for name in names:
+                        opts[name] = s
+                elif rx.search(r'^[A-Z]+', s):
+                    state = STATE_EXIT
+    return opts
+
+def format_code(s):
+    # remove common indent in the block
+    min_indent = None
+    for ln in s.split("\n"):
+        indent = 0
+        for c in ln:
+            if c == '\t': indent += 1
+            else: break
+        if min_indent is None:
+            min_indent = indent
+        elif indent > 0:
+            min_indent = min(indent, min_indent)
+    out = ''
+    lines = s.split("\n")
+    if lines[-1].strip() == '':
+        lines.pop()
+    for ln in lines:
+        out += "| %s\n" % ln[min_indent:]
+    return out
+
+def sortedset(s):
+    return sorted(list(s), key=lambda x: re.sub('^no', '', x))
+
+def opt_neg(opt):
+    if opt.startswith("no"):
+        return opt[2:]
+    else:
+        return "no"+opt
+
+def main():
+    ap = argparse.ArgumentParser(description="Cross-check mount options from cifs.ko/man page")
+    ap.add_argument("cfile", help="path to connect.c")
+    ap.add_argument("rstfile", help="path to mount.cifs.rst")
+    args = ap.parse_args()
+
+    fmt2enum, enum2code = extract_kernel_opts(args.cfile)
+    manopts = extract_man_opts(args.rstfile)
+
+    kernel_opts_set = set(fmt2enum.keys())
+    man_opts_set = set(manopts.keys())
+
+    def opt_alias_is_doc(o):
+        enum = fmt2enum[o]['enum']
+        aliases = []
+        for k,v in fmt2enum.items():
+            if k != o and v['enum'] == enum:
+                if opt_is_doc(k):
+                    return k
+        return None
+
+    def opt_exists(o):
+        return o in fmt2enum
+
+    def opt_is_doc(o):
+        return o in manopts
+
+
+    print('UNDOCUMENTED OPTIONS')
+    print('====================')
+
+    undoc_opts = kernel_opts_set - man_opts_set
+    # group opts and their negations together
+    for opt in sortedset(undoc_opts):
+        fmt = fmt2enum[opt]['fmt']
+        enum = fmt2enum[opt]['enum']
+        code = format_code(enum2code[enum])
+        neg = opt_neg(opt)
+
+        if enum == 'Opt_ignore':
+            print("# skipping %s (Opt_ignore)\n"%opt)
+            continue
+
+        if opt_exists(neg) and opt_is_doc(neg):
+            print("# skipping %s (%s is documented)\n"%(opt, neg))
+            continue
+
+        alias = opt_alias_is_doc(opt)
+        if alias:
+            print("# skipping %s (alias %s is documented)\n"%(opt, alias))
+            continue
+
+        print('OPTION %s ("%s" -> %s):\n%s'%(opt, fmt, enum, code))
+
+    print('')
+    print('DOCUMENTED BUT NON-EXISTING OPTIONS')
+    print('===================================')
+
+    unex_opts = man_opts_set - kernel_opts_set
+    # group opts and their negations together
+    for opt in sortedset(unex_opts):
+        fmt = manopts[opt]
+        print('OPTION %s ("%s")' % (opt, fmt))
+
+
+    print('')
+    print('NEGATIVE OPTIONS WITHOUT POSITIVE')
+    print('=================================')
+
+    for opt in sortedset(kernel_opts_set):
+        if not opt.startswith('no'):
+            continue
+
+        neg = opt[2:]
+        if not opt_exists(neg):
+            print("OPTION %s exists but not %s"%(opt,neg))
+
+# little helper to test AND store result at the same time so you can
+# do if/elsif easily instead of nesting them when you need to do
+# captures
+class RX:
+    def __init__(self):
+        pass
+    def search(self, rx, s, flags=0):
+        self.r = re.search(rx, s, flags)
+        return self.r
+    def group(self, n):
+        return self.r.group(n)
+
+if __name__ == '__main__':
+    main()
