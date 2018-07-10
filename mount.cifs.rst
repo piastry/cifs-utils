@@ -123,6 +123,11 @@ forcegid
   of the gid= option. See the section on `FILE AND DIRECTORY OWNERSHIP
   AND PERMISSIONS`_ below for more information.
 
+idsfromsid
+  Extract uid/gid from special SID instead of mapping it. See the
+  section on `FILE AND DIRECTORY OWNERSHIP AND PERMISSIONS`_ below for
+  more information.
+
 port=arg
   sets the port number on which the client will attempt to contact the
   CIFS server. If this value is specified, look for an existing
@@ -133,8 +138,9 @@ port=arg
   try to connect on port 445 first and then port 139 if that
   fails. Return an error if both fail.
 
-servernetbiosname=arg
-  Specify the server netbios name (RFC1001 name) to use when attempting
+
+netbiosname=arg
+  Specify the client netbios name (RFC1001 name) to use when attempting
   to setup a session to the server. Although rarely needed for mounting
   to newer servers, this option is needed for mounting to some older
   servers (such as OS/2 or Windows 98 and Windows ME) since when
@@ -143,7 +149,8 @@ servernetbiosname=arg
   characters long and is usually uppercased.
 
 servern=arg
-  Synonym for ``servernetbiosname``
+  Similarl to ``netbiosname`` except it specifies the netbios name of
+  the server instead of the client.
 
 netbiosname=arg
   When mounting to servers via port 139, specifies the RFC1001 source
@@ -165,6 +172,10 @@ ip=arg|addr=arg
 
 domain=arg|dom=arg|workgroup=arg
   sets the domain (workgroup) of the user.
+
+domainauto
+  When using NTLMv2 authentification and not providing a domain via
+  ``domain``, guess the domain from the server NTLM challenge.
 
 guest
   don't prompt for a password.
@@ -237,6 +248,9 @@ cache=arg
   The default in kernels prior to 3.7 was ``loose``. As of kernel 3.7 the
   default is ``strict``.
 
+nostrictsync
+  Do not flush to the server on fsync().
+
 handlecache
   (default) In SMB2 and above, the client often has to open the root
   of the share (empty path) in various places during mount, path
@@ -246,32 +260,6 @@ handlecache
 
 nohandlecache
   Disable caching of the share root directory handle.
-
-directio
-  Do not do inode data caching on files opened on this mount. This
-  precludes mmaping files on this mount. In some cases with fast
-  networks and little or no caching benefits on the client (e.g. when
-  the application is doing large sequential reads bigger than page size
-  without rereading the same data) this can provide better performance
-  than the default behavior which caches reads (readahead) and writes
-  (writebehind) through the local Linux client pagecache if oplock
-  (caching token) is granted and held. Note that direct allows write
-  operations larger than page size to be sent to the server. On some
-  kernels this requires the cifs.ko module to be built with the
-  ``CIFS_EXPERIMENTAL`` configure option.
-
-  This option is will be deprecated in 3.7. Users should use
-  ``cache=none`` instead on more recent kernels.
-
-strictcache
-  Use for switching on strict cache mode. In this mode the client reads
-  from the cache all the time it has *Oplock Level II* , otherwise -
-  read from the server. As for write - the client stores a data in the
-  cache in *Exclusive Oplock* case, otherwise - write directly to the
-  server.
-
-  This option is will be deprecated in 3.7. Users should use
-  ``cache=strict`` instead on more recent kernels.
 
 rwpidforward
   Forward pid of a process who opened a file to any read or write
@@ -283,7 +271,7 @@ mapchars
   including the colon, question mark, pipe, asterik, greater than and
   less than characters) to the remap range (above 0xF000), which also
   allows the CIFS client to recognize files created with such characters
-  by Windows's POSIX emulation. This can also be useful when mounting to
+  by Windows's Services for Mac. This can also be useful when mounting to
   most versions of Samba (which also forbids creating and opening files
   whose names contain any of these seven characters). This has no effect
   if the server does not support Unicode on the wire. Please note that
@@ -292,6 +280,10 @@ mapchars
 
 nomapchars
   (default) Do not translate any of these seven characters.
+
+mapposix
+  Translate reserved characters similarly to ``mapchars`` but use the
+  mapping from Microsoft "Services For Unix".
 
 intr
   currently unimplemented.
@@ -370,11 +362,41 @@ seal
   Request encryption at the SMB layer. Encryption is only supported in
   SMBv3 and above. The encryption algorithm used is AES-128-CCM.
 
+rdma
+  Connect directly to the server using SMB Direct via a RDMA adapter.
+
+resilienthandles
+  Enable resilient handles. If the server supports it, keep opened
+  files across reconenctions. Requires SMB2.1.
+
+noresilienthandles
+  (default) Disable resilient handles.
+
+persistenthandles
+  Enable persistent handles. If the server supports it, keep opened
+  files across reconnections. Persistent handles are also valid across
+  servers in a cluser and have stronger guarantees than resilient
+  handles. Requires SMB3 or above.
+
+nopersistenthandles
+  (default) Disable persistent handles.
+
+snapshot=time
+  Mount a specific snapshot of the remote share. ``time`` must be a
+  positive integer identifying the snapshot requested.
+
 nobrl
   Do not send byte range lock requests to the server. This is necessary
   for certain applications that break with cifs style mandatory byte
   range locks (and most cifs servers do not yet support requesting
   advisory byte range locks).
+
+forcemandatorylock
+  Do not use POSIX locks even when available via unix
+  extensions. Always use cifs style mandatory locks.
+
+locallease
+  Check cache leases locally instead of querying the server.
 
 sfu
   When the CIFS Unix Extensions are not negotiated, attempt to create
@@ -431,8 +453,12 @@ noserverino
 
   See section `INODE NUMBERS`_ for more information.
 
-nounix
-  Disable the CIFS Unix Extensions for this mount. This can be useful in
+unix|linux
+  (default) Enable Unix Extensions for this mount. Requires CIFS
+  (vers=1.0) or SMB3.1.1 (vers=3.1.1) and a server supporting them.
+
+nounix|nolinux
+  Disable the Unix Extensions for this mount. This can be useful in
   order to turn off multiple settings at once. This includes POSIX acls,
   POSIX locks, POSIX paths, symlink support and retrieving
   uids/gids/mode from the server. This can also be useful to work around
@@ -443,6 +469,23 @@ nounix
 nouser_xattr
   Do not allow getfattr/setfattr to get/set xattrs, even if server would
   support it otherwise. The default is for xattr support to be enabled.
+
+nodfs
+  Do not follow Distributed FileSystem referals. IO on a file not
+  stored on the server will fail instead of connecting to the target
+  server transparently.
+
+noautotune
+  Use fixed size for kernel recv/send socket buffers.
+
+nosharesock
+  Do not try to reuse sockets if the system is already connected to
+  the server via an existing mount point. This will make the client
+  always make a new connection to the server no matter what he is
+  already connected to.
+
+noblocksend
+  Send data on the socket using non blocking operations (MSG_DONTWAIT flag).
 
 rsize=bytes
   Maximum amount of data that the kernel will request in a read request
@@ -471,6 +514,10 @@ wsize=bytes
   negotiation is performed. It can end up with an existing superblock if
   this value isn't specified or it's greater or equal than the existing
   one.
+
+max_credits=n
+  Maximum credits the SMB2 client can have. Default is 32000. Must be
+  set to a number between 20 and 60000.
 
 fsc
   Enable local disk caching using FS-Cache for CIFS. This option could
