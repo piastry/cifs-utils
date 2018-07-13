@@ -403,6 +403,11 @@ echo_interval=n
   If this option is not given then the default value of 60 seconds is used.
   The minimum tunable value is 1 second and maximum can go up to 600 seconds.
 
+rdma
+   Use to connect to SMB Direct, only applicable when specified with
+   vers=3 or vers=3.x.
+   Here 3.x can be 3.0, 3.02 or 3.1.1.
+
 serverino
   Use inode numbers (unique persistent file identifiers) returned by the
   server instead of automatically generating temporary inode numbers on
