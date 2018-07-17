@@ -16,7 +16,7 @@ man_MANS=
 
 SUFFIXES = .rst .1 .8
 
-RST2MAN = rst2man --syntax-highlight=none $< $@
+RST2MAN = $(have_rst2man) --syntax-highlight=none $< $@
 
 .rst.1:
 	$(RST2MAN)

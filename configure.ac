@@ -252,12 +252,12 @@ fi
 
 # if docs are not disabled, check if rst2man is available
 if test $enable_man != "no"; then
-	AC_CHECK_PROG(have_rst2man, rst2man, yes, no)
+	AC_CHECK_PROGS(have_rst2man, rst2man-3.6 rst2man-3.4 rst2man-3 rst2man, no)
 	if test $have_rst2man = "no"; then
 		if test $enable_man = "yes"; then
-			AC_MSG_ERROR([rst2man not found: cannot generate man pages, consider installing perl.])
+			AC_MSG_ERROR([rst2man not found: cannot generate man pages, consider installing python{2,3}-docutils.])
 		else
-			AC_MSG_WARN([rst2man not found: cannot generate man pages, consider installing perl. Disabling man page generation.])
+			AC_MSG_WARN([rst2man not found: cannot generate man pages, consider installing python{2,3}-docutils. Disabling man page generation.])
 			enable_man="no"
 		fi
 	else
