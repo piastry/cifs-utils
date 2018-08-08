@@ -98,9 +98,12 @@ def extract_man_opts(fn):
     state = STATE_BASE
     rx = RX()
     opts = {}
+    ln = 0
 
     with open(fn) as f:
         for s in f.readlines():
+            ln += 1
+
             if state == STATE_EXIT:
                 break
 
@@ -113,7 +116,9 @@ def extract_man_opts(fn):
                     s = chomp(s)
                     names = extract_canonical_opts(s)
                     for name in names:
-                        opts[name] = s
+                        if name not in opts:
+                            opts[name] = []
+                        opts[name].append({'ln':ln, 'fmt':s})
                 elif rx.search(r'^[A-Z]+', s):
                     state = STATE_EXIT
     return opts
@@ -174,6 +179,14 @@ def main():
     def opt_is_doc(o):
         return o in manopts
 
+    print('DUPLICATED DOC OPTIONS')
+    print('======================')
+
+    for opt in sortedset(man_opts_set):
+        if len(manopts[opt]) > 1:
+            lines = ", ".join([str(x['ln']) for x in manopts[opt]])
+            print("OPTION %-20.20s (lines %s)"%(opt, lines))
+    print()
 
     print('UNDOCUMENTED OPTIONS')
     print('====================')
@@ -208,8 +221,8 @@ def main():
     unex_opts = man_opts_set - kernel_opts_set
     # group opts and their negations together
     for opt in sortedset(unex_opts):
-        fmt = manopts[opt]
-        print('OPTION %s ("%s")' % (opt, fmt))
+        man = manopts[opt][0]
+        print('OPTION %s ("%s") line %d' % (opt, man['fmt'], man['ln']))
 
 
     print('')
