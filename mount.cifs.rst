@@ -138,24 +138,19 @@ port=arg
   try to connect on port 445 first and then port 139 if that
   fails. Return an error if both fail.
 
-
 netbiosname=arg
-  Specify the client netbios name (RFC1001 name) to use when attempting
-  to setup a session to the server. Although rarely needed for mounting
+  When mounting to servers via port 139, specifies the RFC1001 source
+  name to use to represent the client netbios machine during the netbios
+  session initialization.
+
+servern=arg
+  Similar to ``netbiosname`` except it specifies the netbios name of
+  the server instead of the client. Although rarely needed for mounting
   to newer servers, this option is needed for mounting to some older
   servers (such as OS/2 or Windows 98 and Windows ME) since when
   connecting over port 139 they, unlike most newer servers, do not
   support a default server name. A server name can be up to 15
   characters long and is usually uppercased.
-
-servern=arg
-  Similarl to ``netbiosname`` except it specifies the netbios name of
-  the server instead of the client.
-
-netbiosname=arg
-  When mounting to servers via port 139, specifies the RFC1001 source
-  name to use to represent the client netbios machine name when doing
-  the RFC1001 netbios session initialize.
 
 file_mode=arg
   If the server does not support the CIFS Unix extensions this overrides
@@ -171,11 +166,14 @@ ip=arg|addr=arg
   rarely needs to be specified by the user.
 
 domain=arg|dom=arg|workgroup=arg
-  sets the domain (workgroup) of the user.
+  Sets the domain (workgroup) of the user. If no domains are given,
+  the empty domain will be used. Use ``domainauto`` to automatically
+  guess the domain of the server you are connecting to.
 
 domainauto
-  When using NTLMv2 authentification and not providing a domain via
+  When using NTLM authentication and not providing a domain via
   ``domain``, guess the domain from the server NTLM challenge.
+  This behavior used to be the default on kernels older than 2.6.36.
 
 guest
   don't prompt for a password.
@@ -249,7 +247,14 @@ cache=arg
   default is ``strict``.
 
 nostrictsync
-  Do not flush to the server on fsync().
+  Do not ask the server to flush on fsync().
+  Some servers perform non-buffered writes by default in which case
+  flushing is redundant. In workloads where a client is performing a
+  lot of small write + fsync combinations and where network latency is
+  much higher than the server latency, this brings a 2x performance
+  improvement.
+  This option is also a good candidate in scenarios where we want
+  performance over consistency.
 
 handlecache
   (default) In SMB2 and above, the client often has to open the root
@@ -359,15 +364,16 @@ sec=arg
   automatically if it's enabled in */proc/fs/cifs/SecurityFlags*.
 
 seal
-  Request encryption at the SMB layer. Encryption is only supported in
-  SMBv3 and above. The encryption algorithm used is AES-128-CCM.
+  Request encryption at the SMB layer. The encryption algorithm used
+  is AES-128-CCM. Requires SMB3 or above (see ``vers``).
 
 rdma
-  Connect directly to the server using SMB Direct via a RDMA adapter.
+  Connect directly to the server using SMB Direct via a RDMA
+  adapter. Requires SMB3 or above (see ``vers``).
 
 resilienthandles
   Enable resilient handles. If the server supports it, keep opened
-  files across reconenctions. Requires SMB2.1.
+  files across reconnections. Requires SMB2.1 (see ``vers``).
 
 noresilienthandles
   (default) Disable resilient handles.
@@ -375,15 +381,11 @@ noresilienthandles
 persistenthandles
   Enable persistent handles. If the server supports it, keep opened
   files across reconnections. Persistent handles are also valid across
-  servers in a cluser and have stronger guarantees than resilient
-  handles. Requires SMB3 or above.
+  servers in a cluster and have stronger guarantees than resilient
+  handles. Requires SMB3 or above (see ``vers``).
 
 nopersistenthandles
   (default) Disable persistent handles.
-
-snapshot=time
-  Mount a specific snapshot of the remote share. ``time`` must be a
-  positive integer identifying the snapshot requested.
 
 nobrl
   Do not send byte range lock requests to the server. This is necessary
@@ -396,7 +398,7 @@ forcemandatorylock
   extensions. Always use cifs style mandatory locks.
 
 locallease
-  Check cache leases locally instead of querying the server.
+  Check cached leases locally instead of querying the server.
 
 sfu
   When the CIFS Unix Extensions are not negotiated, attempt to create
@@ -424,11 +426,6 @@ echo_interval=n
   echo_interval set for an unresponsive server.
   If this option is not given then the default value of 60 seconds is used.
   The minimum tunable value is 1 second and maximum can go up to 600 seconds.
-
-rdma
-   Use to connect to SMB Direct, only applicable when specified with
-   vers=3 or vers=3.x.
-   Here 3.x can be 3.0, 3.02 or 3.1.1.
 
 serverino
   Use inode numbers (unique persistent file identifiers) returned by the
@@ -471,7 +468,7 @@ nouser_xattr
   support it otherwise. The default is for xattr support to be enabled.
 
 nodfs
-  Do not follow Distributed FileSystem referals. IO on a file not
+  Do not follow Distributed FileSystem referrals. IO on a file not
   stored on the server will fail instead of connecting to the target
   server transparently.
 
