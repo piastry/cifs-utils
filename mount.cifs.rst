@@ -592,6 +592,7 @@ vers=arg
   - 2.1 - The SMBv2.1 protocol that was introduced in Microsoft Windows 7 and Windows Server 2008R2.
   - 3.0 - The SMBv3.0 protocol that was introduced in Microsoft Windows 8 and Windows Server 2012.
   - 3.1.1 or 3.11 - The SMBv3.1.1 protocol that was introduced in Microsoft Windows Server 2016.
+  - 3 - The SMBv3.0 protocol version and above.
 
   Note too that while this option governs the protocol version used, not
   all features of each version are available.
