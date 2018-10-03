@@ -40,6 +40,11 @@ AC_ARG_ENABLE(cifsacl,
 	enable_cifsacl=$enableval,
 	enable_cifsacl="maybe")
 
+AC_ARG_ENABLE(smbinfo,
+        [AS_HELP_STRING([--enable-smbinfo],[Create smbinfo binary @<:@default=yes@@])],
+        enable_smbinfo=$enableval,
+        enable_smbinfo="maybe")
+
 AC_ARG_ENABLE(pam,
 	[AS_HELP_STRING([--enable-pam],[Create cifscreds PAM module @<:@default=yes@:>@])],
 	enable_pam=$enableval,
@@ -275,6 +280,7 @@ AM_CONDITIONAL(CONFIG_CIFSUPCALL, [test "$enable_cifsupcall" != "no"])
 AM_CONDITIONAL(CONFIG_CIFSCREDS, [test "$enable_cifscreds" != "no"])
 AM_CONDITIONAL(CONFIG_CIFSIDMAP, [test "$enable_cifsidmap" != "no"])
 AM_CONDITIONAL(CONFIG_CIFSACL, [test "$enable_cifsacl" != "no"])
+AM_CONDITIONAL(CONFIG_SMBINFO, [test "$enable_smbinfo" != "no"])
 AM_CONDITIONAL(CONFIG_PAM, [test "$enable_pam" != "no"])
 AM_CONDITIONAL(CONFIG_PLUGIN, [test "$enable_cifsidmap" != "no" -o "$enable_cifsacl" != "no"])
 

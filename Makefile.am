@@ -79,6 +79,12 @@ setcifsacl.rst: setcifsacl.rst.in
 	$(SED) 's,[@]pluginpath@,$(pluginpath),' $(srcdir)/$@.in > $@-t && mv $@-t $@
 endif
 
+if CONFIG_SMBINFO
+bin_PROGRAMS += smbinfo
+smbinfo_SOURCES = smbinfo.c
+rst_man_pages += smbinfo.1
+endif
+
 if CONFIG_PLUGIN
 plugindir = $(pkglibdir)
 plugin_PROGRAMS = idmapwb.so
