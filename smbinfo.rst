@@ -61,7 +61,7 @@ NOTES
 *****
 
 Kernel support for smbinfo utilities requires the CIFS_QUERY_INFO
-IOCTL which was initially introduced in the XXX kernel and is only
+IOCTL which was initially introduced in the 4.20 kernel and is only
 implemented for mount points using SMB2 or above (see mount.cifs(8)
 `vers` option).
 
