@@ -57,6 +57,8 @@ usage(char *name)
 {
         fprintf(stderr, "Usage: %s <command> <file>\n"
                 "Commands are\n"
+                "  fileallinfo:\n"
+                "      Prints common metadata associated with a file.\n"
                 "  secdesc:\n"
                 "      Prints the security descriptor for a cifs file.\n"
                 "  quota:\n"
