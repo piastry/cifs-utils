@@ -39,14 +39,23 @@ OPTIONS
 COMMAND
 *******
 
-`secdesc`: Print the security descriptor in the form
-- Revision
-- Control
-- Owner SID
-- Group SID
-- ACL
-- File types
-- File flags
+`fileaccessinfo`: Prints the FileAccessInformation class
+
+`filealigninfo`: Prints the FileAlignmentInformation class
+
+`fileallinfo`: Prints the FileAllInformation class
+
+`filebasicinfo`: Prints the FileBasicInformation class
+
+`fileeainfo`: Prints the FileEaInformation class
+
+`fileinternalinfo`: Prints the FileInternalInformation class
+
+`filemodeinfo`: Prints the FileModeInformation class
+
+`filepositioninfo`: Prints the FilePositionInformation class
+
+`filestandardinfo`: Prints the FileStandardInformation class
 
 `quota`: Print the quota for the volume in the form
 - SID Length
@@ -55,6 +64,15 @@ COMMAND
 - Quota Threshold
 - Quota Limit
 - SID
+
+`secdesc`: Print the security descriptor in the form
+- Revision
+- Control
+- Owner SID
+- Group SID
+- ACL
+- File types
+- File flags
 
 *****
 NOTES
