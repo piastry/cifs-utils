@@ -63,6 +63,8 @@
 static krb5_context	context;
 static const char	*prog = "cifs.upcall";
 
+#define DNS_RESOLVER_DEFAULT_TIMEOUT 600 /* 10 minutes */
+
 typedef enum _sectype {
 	NONE = 0,
 	KRB5,
@@ -749,19 +751,48 @@ decode_key_description(const char *desc, struct decoded_args *arg)
 	return retval;
 }
 
-static int cifs_resolver(const key_serial_t key, const char *key_descr)
+static int setup_key(const key_serial_t key, const void *data, size_t datalen)
+{
+	int rc;
+
+	rc = keyctl_instantiate(key, data, datalen, 0);
+	if (rc) {
+		switch (errno) {
+		case ENOMEM:
+		case EDQUOT:
+			rc = keyctl_clear(key);
+			if (rc) {
+				syslog(LOG_ERR, "%s: keyctl_clear: %s",
+				       __func__, strerror(errno));
+				return rc;
+			}
+			rc = keyctl_instantiate(key, data, datalen, 0);
+			break;
+		default:
+			;
+		}
+	}
+	if (rc) {
+		syslog(LOG_ERR, "%s: keyctl_instantiate: %s",
+		       __func__, strerror(errno));
+	}
+	return rc;
+}
+
+static int cifs_resolver(const key_serial_t key, const char *key_descr,
+			 const char *key_buf, unsigned expire_time)
 {
 	int c;
 	struct addrinfo *addr;
 	char ip[INET6_ADDRSTRLEN];
 	void *p;
-	const char *keyend = key_descr;
+	const char *keyend = key_buf;
 	/* skip next 4 ';' delimiters to get to description */
 	for (c = 1; c <= 4; c++) {
 		keyend = index(keyend + 1, ';');
 		if (!keyend) {
 			syslog(LOG_ERR, "invalid key description: %s",
-			       key_descr);
+			       key_buf);
 			return 1;
 		}
 	}
@@ -787,15 +818,21 @@ static int cifs_resolver(const key_serial_t key, const char *key_descr)
 		return 1;
 	}
 
-	/* setup key */
-	c = keyctl_instantiate(key, ip, strlen(ip) + 1, 0);
-	if (c == -1) {
-		syslog(LOG_ERR, "%s: keyctl_instantiate: %s", __func__,
+	/* needed for keyctl_set_timeout() */
+	request_key("keyring", key_descr, NULL, KEY_SPEC_THREAD_KEYRING);
+
+	c = setup_key(key, ip, strlen(ip) + 1);
+	if (c) {
+		freeaddrinfo(addr);
+		return 1;
+	}
+	c = keyctl_set_timeout(key, expire_time);
+	if (c) {
+		syslog(LOG_ERR, "%s: keyctl_set_timeout: %s", __func__,
 		       strerror(errno));
 		freeaddrinfo(addr);
 		return 1;
 	}
-
 	freeaddrinfo(addr);
 	return 0;
 }
@@ -864,7 +901,7 @@ lowercase_string(char *c)
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: %s [ -K /path/to/keytab] [-k /path/to/krb5.conf] [-E] [-t] [-v] [-l] key_serial\n", prog);
+	fprintf(stderr, "Usage: %s [ -K /path/to/keytab] [-k /path/to/krb5.conf] [-E] [-t] [-v] [-l] [-e nsecs] key_serial\n", prog);
 }
 
 static const struct option long_options[] = {
@@ -874,6 +911,7 @@ static const struct option long_options[] = {
 	{"trust-dns", 0, NULL, 't'},
 	{"keytab", 1, NULL, 'K'},
 	{"version", 0, NULL, 'v'},
+	{"expire", 1, NULL, 'e'},
 	{NULL, 0, NULL, 0}
 };
 
@@ -897,13 +935,15 @@ int main(const int argc, char *const argv[])
 	char *env_cachename = NULL;
 	krb5_ccache ccache = NULL;
 	struct passwd *pw;
+	unsigned expire_time = DNS_RESOLVER_DEFAULT_TIMEOUT;
+	const char *key_descr = NULL;
 
 	hostbuf[0] = '\0';
 	memset(&arg, 0, sizeof(arg));
 
 	openlog(prog, 0, LOG_DAEMON);
 
-	while ((c = getopt_long(argc, argv, "cEk:K:ltv", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "cEk:K:ltve:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'c':
 			/* legacy option -- skip it */
@@ -931,6 +971,9 @@ int main(const int argc, char *const argv[])
 			rc = 0;
 			printf("version: %s\n", VERSION);
 			goto out;
+		case 'e':
+			expire_time = strtoul(optarg, NULL, 10);
+			break;
 		default:
 			syslog(LOG_ERR, "unknown option: %c", c);
 			goto out;
@@ -965,9 +1008,12 @@ int main(const int argc, char *const argv[])
 
 	syslog(LOG_DEBUG, "key description: %s", buf);
 
-	if ((strncmp(buf, "cifs.resolver", sizeof("cifs.resolver") - 1) == 0) ||
-	    (strncmp(buf, "dns_resolver", sizeof("dns_resolver") - 1) == 0)) {
-		rc = cifs_resolver(key, buf);
+	if (strncmp(buf, "cifs.resolver", sizeof("cifs.resolver") - 1) == 0)
+		key_descr = ".cifs.resolver";
+	else if (strncmp(buf, "dns_resolver", sizeof("dns_resolver") - 1) == 0)
+		key_descr = ".dns_resolver";
+	if (key_descr) {
+		rc = cifs_resolver(key, key_descr, buf, expire_time);
 		goto out;
 	}
 
@@ -1193,16 +1239,8 @@ retry_new_hostname:
 	memcpy(&(keydata->data) + keydata->sesskey_len,
 	       secblob.data, secblob.length);
 
-	/* setup key */
-	rc = keyctl_instantiate(key, keydata, datalen, 0);
-	if (rc == -1) {
-		syslog(LOG_ERR, "keyctl_instantiate: %s", strerror(errno));
-		goto out;
-	}
+	rc = setup_key(key, keydata, datalen);
 
-	/* BB: maybe we need use timeout for key: for example no more then
-	 * ticket lifietime? */
-	/* keyctl_set_timeout( key, 60); */
 out:
 	/*
 	 * on error, negatively instantiate the key ourselves so that we can

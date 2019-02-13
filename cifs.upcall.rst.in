@@ -13,7 +13,7 @@ SYNOPSIS
 
   cifs.upcall [--trust-dns|-t] [--version|-v] [--legacy-uid|-l]
               [--krb5conf=/path/to/krb5.conf|-k /path/to/krb5.conf]
-              [--keytab=/path/to/keytab|-K /path/to/keytab] {keyid}
+              [--keytab=/path/to/keytab|-K /path/to/keytab] [--expire|-e nsecs] {keyid}
 
 ***********
 DESCRIPTION
@@ -84,6 +84,9 @@ OPTIONS
   the mount. For multisession mounts, it's set to the fsuid of the mount
   user. Set this option if you want cifs.upcall to use the older uid=
   parameter instead of the creduid= parameter.
+
+--expire|-e
+  Override default timeout value (600 seconds) for ``dns_resolver`` key.
 
 --version|-v
   Print version number and exit.
