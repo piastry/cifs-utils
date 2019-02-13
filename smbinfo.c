@@ -67,6 +67,8 @@ usage(char *name)
                 "      Prints FileBasicInfo for a cifs file.\n"
                 "  fileeainfo:\n"
                 "      Prints FileEAInfo for a cifs file.\n"
+                "  filefsfullsizeinfo:\n"
+                "      Prints FileFsFullSizeInfo for a cifs share.\n"
                 "  fileinternalinfo:\n"
                 "      Prints FileInternalInfo for a cifs file.\n"
                 "  filemodeinfo:\n"
@@ -493,6 +495,51 @@ fileeainfo(int f)
 }
 
 static void
+print_filefullsizeinfo(uint8_t *sd)
+{
+        uint32_t u32;
+        uint64_t u64;
+
+        memcpy(&u64, &sd[0], 8);
+        printf("Total Allocation Units: %" PRIu64 "\n", le64toh(u64));
+
+        memcpy(&u64, &sd[8], 8);
+        printf("Caller Available Allocation Units: %" PRIu64 "\n",
+	       le64toh(u64));
+
+        memcpy(&u64, &sd[16], 8);
+        printf("Actual Available Allocation Units: %" PRIu64 "\n",
+	       le64toh(u64));
+
+        memcpy(&u32, &sd[24], 4);
+        printf("Sectors Per Allocation Unit: %" PRIu32 "\n", le32toh(u32));
+
+        memcpy(&u32, &sd[28], 4);
+        printf("Bytes Per Sector: %" PRIu32 "\n", le32toh(u32));
+}
+
+static void
+filefsfullsizeinfo(int f)
+{
+        struct smb_query_info *qi;
+
+        qi = malloc(sizeof(struct smb_query_info) + 32);
+	memset(qi, 0, sizeof(qi) + 32);
+        qi->info_type = 0x02;
+        qi->file_info_class = 7;
+        qi->additional_information = 0;
+        qi->input_buffer_length = 32;
+
+        if (ioctl(f, CIFS_QUERY_INFO, qi) < 0) {
+                fprintf(stderr, "ioctl failed with %s\n", strerror(errno));
+                exit(1);
+        }
+
+        print_filefullsizeinfo((uint8_t *)(&qi[1]));
+	free(qi);
+}
+
+static void
 fileallinfo(int f)
 {
         struct smb_query_info *qi;
@@ -759,6 +806,8 @@ int main(int argc, char *argv[])
                 filebasicinfo(f);
         else if (!strcmp(argv[1], "fileeainfo"))
                 fileeainfo(f);
+        else if (!strcmp(argv[1], "filefsfullsizeinfo"))
+                filefsfullsizeinfo(f);
         else if (!strcmp(argv[1], "fileinternalinfo"))
                 fileinternalinfo(f);
         else if (!strcmp(argv[1], "filemodeinfo"))

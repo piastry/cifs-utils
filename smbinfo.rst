@@ -49,6 +49,8 @@ COMMAND
 
 `fileeainfo`: Prints the FileEaInformation class
 
+`filefsfullsizeinfo`: Prints the FileFsFullSizeInformation class
+
 `fileinternalinfo`: Prints the FileInternalInformation class
 
 `filemodeinfo`: Prints the FileModeInformation class
