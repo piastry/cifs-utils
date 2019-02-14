@@ -2099,6 +2099,10 @@ mount_retry:
 		switch (errno) {
 		case ECONNREFUSED:
 		case EHOSTUNREACH:
+			if (currentaddress) {
+				fprintf(stderr, "mount error(%d): could not connect to %s",
+					errno, currentaddress);
+			}
 			currentaddress = nextaddress;
 			if (currentaddress) {
 				nextaddress = strchr(currentaddress, ',');
@@ -2109,6 +2113,12 @@ mount_retry:
 		case ENODEV:
 			fprintf(stderr,
 				"mount error: %s filesystem not supported by the system\n", cifs_fstype);
+			break;
+		case EHOSTDOWN:
+			fprintf(stderr,
+				"mount error: Server abruptly closed the connection.\n"
+				"This can happen if the server does not support the SMB version you are trying to use.\n"
+				"The default SMB version recently changed from SMB1 to SMB2.1 and above. Try mounting with vers=1.0.\n");
 			break;
 		case ENXIO:
 			if (!already_uppercased &&
@@ -2126,7 +2136,7 @@ mount_retry:
 			strerror(errno));
 		fprintf(stderr,
 			"Refer to the %s(8) manual page (e.g. man "
-			"%s)\n", thisprogram, thisprogram);
+			"%s) and kernel log messages (dmesg)\n", thisprogram, thisprogram);
 		rc = EX_FAIL;
 		goto mount_exit;
 	}
