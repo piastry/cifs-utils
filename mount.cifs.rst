@@ -591,9 +591,13 @@ vers=arg
     different dialect (2.000) that is not supported.
   - 2.1 - The SMBv2.1 protocol that was introduced in Microsoft Windows 7 and Windows Server 2008R2.
   - 3.0 - The SMBv3.0 protocol that was introduced in Microsoft Windows 8 and Windows Server 2012.
-  - 3.02 - The SMBv3.0.2 protocol that was introduced in Microsoft Windows 8.1 and Windows Server 2012R2.
+  - 3.02 or 3.0.2 - The SMBv3.0.2 protocol that was introduced in Microsoft Windows 8.1 and Windows Server 2012R2.
   - 3.1.1 or 3.11 - The SMBv3.1.1 protocol that was introduced in Microsoft Windows Server 2016.
   - 3 - The SMBv3.0 protocol version and above.
+  - default - Tries to negotiate the highest SMB2+ version supported by both the client and server.
+
+  If no dialect is specified on mount vers=default is used.
+  To check ``Dialect`` refer to /proc/fs/cifs/DebugData
 
   Note too that while this option governs the protocol version used, not
   all features of each version are available.
