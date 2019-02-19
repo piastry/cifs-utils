@@ -398,8 +398,12 @@ cifsacl:
 			free(attrval);
 			bufsize += BUFSIZE;
 			goto cifsacl;
-		} else
-			printf("getxattr error: %d\n", errno);
+		} else {
+			fprintf(stderr, "getxattr failed on %s: %s\n", filename, strerror(errno) );
+			free(attrval);
+			ret = -1;
+			goto out;
+		}
 	}
 
 	parse_sec_desc((struct cifs_ntsd *)attrval, attrlen, raw);
