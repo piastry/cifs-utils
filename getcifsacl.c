@@ -40,6 +40,7 @@
 
 static void *plugin_handle;
 static bool plugin_loaded;
+static char *execname;
 
 static void
 print_each_ace_mask(uint32_t mask)
@@ -331,6 +332,8 @@ getcifsacl_usage(const char *prog)
 		prog);
 	fprintf(stderr, "Usage: %s [option] <file_name>\n", prog);
 	fprintf(stderr, "Valid options:\n");
+	fprintf(stderr, "\t-h	Display this help text\n");
+	fprintf(stderr, "\n");
 	fprintf(stderr, "\t-v	Version of the program\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "\t-r	Display raw values of the ACE fields\n");
@@ -345,8 +348,15 @@ main(const int argc, char *const argv[])
 	ssize_t attrlen;
 	size_t bufsize = BUFSIZE;
 	char *filename, *attrval;
+	execname = basename(argv[0]);
 
-	while ((c = getopt_long(argc, argv, "r:v", NULL, NULL)) != -1) {
+	if (argc < 2) {
+		fprintf(stderr, "%s: you must specify a filename.\n", execname);
+		printf("Try `getcifsacl -h' for more information.\n");
+		goto out;
+	}
+
+	while ((c = getopt_long(argc, argv, "rhv", NULL, NULL)) != -1) {
 		switch (c) {
 		case 'v':
 			printf("Version: %s\n", VERSION);
@@ -355,18 +365,17 @@ main(const int argc, char *const argv[])
 			raw = true;
 			break;
 		default:
-			break;
+			getcifsacl_usage(execname);
+			goto out;
 		}
 	}
 
-	if (raw && argc == 3)
-		filename = argv[2];
-	else if (argc == 2)
-		filename = argv[1];
-	else {
-		getcifsacl_usage(basename(argv[0]));
+	if (optind >= argc) {
+		printf("you must specify a filename after options.\n");
+		printf("Usage: getcifsacl [option] <file_name>\n");
 		goto out;
-	}
+	} else
+		filename = argv[optind];
 
 	if (!raw && !plugin_loaded) {
 		ret = init_plugin(&plugin_handle);
