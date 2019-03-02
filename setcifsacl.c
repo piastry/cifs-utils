@@ -106,13 +106,32 @@ copy_sec_desc(const struct cifs_ntsd *pntsd, struct cifs_ntsd *pnntsd,
 
 	/* copy owner sid */
 	owner_sid_ptr = (struct cifs_sid *)((char *)pntsd + osidsoffset);
-	nowner_sid_ptr = (struct cifs_sid *)((char *)pnntsd + osidsoffset);
-	size = copy_cifs_sid(nowner_sid_ptr, owner_sid_ptr);
-	bufsize += size;
+	group_sid_ptr = (struct cifs_sid *)((char *)pntsd + gsidsoffset);
+	/*
+	 * some servers like Azure return the owner and group SIDs at end rather
+	 * than at the beginning of the ACL so don't want to overwrite the last ACEs
+         */
+	if (dacloffset <= osidsoffset) {
+		/* owners placed at end of ACL */
+		nowner_sid_ptr = (struct cifs_sid *)((char *)pnntsd + dacloffset + size);
+		pnntsd->osidoffset = dacloffset + size;
+		size = copy_cifs_sid(nowner_sid_ptr, owner_sid_ptr);
+		bufsize += size;
+		/* put group SID after owner SID */
+		ngroup_sid_ptr = (struct cifs_sid *)((char *)nowner_sid_ptr + size);
+		pnntsd->gsidoffset = pnntsd->osidoffset + size;
+	} else {
+		/*
+		 * Most servers put the owner information at the beginning,
+		 * before the ACL
+		 */
+		nowner_sid_ptr = (struct cifs_sid *)((char *)pnntsd + osidsoffset);
+		size = copy_cifs_sid(nowner_sid_ptr, owner_sid_ptr);
+		bufsize += size;
+		ngroup_sid_ptr = (struct cifs_sid *)((char *)pnntsd + gsidsoffset);
+	}
 
 	/* copy group sid */
-	group_sid_ptr = (struct cifs_sid *)((char *)pntsd + gsidsoffset);
-	ngroup_sid_ptr = (struct cifs_sid *)((char *)pnntsd + gsidsoffset);
 	size = copy_cifs_sid(ngroup_sid_ptr, group_sid_ptr);
 	bufsize += size;
 
