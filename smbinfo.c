@@ -39,6 +39,11 @@
 #include <inttypes.h>
 
 #define CIFS_IOCTL_MAGIC 0xCF
+
+/* query_info flags */
+#define PASSTHRU_QUERY_INFO     0x00000000
+#define PASSTHRU_FSCTL          0x00000001
+
 struct smb_query_info {
 	uint32_t   info_type;
 	uint32_t   file_info_class;
@@ -165,6 +170,72 @@ print_bits(uint32_t mask, struct bit_string *bs)
 	}
 	if (!first)
 		printf(" ");
+}
+
+static void
+print_guid(uint8_t *sd)
+{
+	uint32_t u32;
+	uint16_t u16;
+	int i;
+
+	memcpy(&u32, &sd[0], 4);
+	printf("%08x-", le32toh(u32));
+
+	memcpy(&u16, &sd[4], 2);
+	printf("%04x-", le16toh(u16));
+
+	memcpy(&u16, &sd[6], 2);
+	printf("%04x-", le16toh(u16));
+
+	printf("%02x%02x-", sd[8], sd[9]);
+	for (i = 0; i < 6; i++)
+		printf("%02x", sd[10 + i]);
+}
+
+static void
+print_objidbuf(uint8_t *sd)
+{
+	printf("Object-ID: ");
+	print_guid(&sd[0]);
+	printf("\n");
+
+	printf("Birth-Volume-ID: ");
+	print_guid(&sd[16]);
+	printf("\n");
+
+	printf("Birth-Object-ID: ");
+	print_guid(&sd[32]);
+	printf("\n");
+
+	printf("Domain-ID: ");
+	print_guid(&sd[48]);
+	printf("\n");
+}
+
+static void
+fsctlgetobjid(int f)
+{
+	struct smb_query_info *qi;
+	struct stat st;
+
+	fstat(f, &st);
+
+	qi = malloc(sizeof(struct smb_query_info) + 64);
+	memset(qi, 0, sizeof(qi) + 64);
+	qi->info_type = 0x9009c;
+	qi->file_info_class = 0;
+	qi->additional_information = 0;
+	qi->input_buffer_length = 64;
+	qi->flags = PASSTHRU_FSCTL;
+
+	if (ioctl(f, CIFS_QUERY_INFO, qi) < 0) {
+		fprintf(stderr, "ioctl failed with %s\n", strerror(errno));
+		exit(1);
+	}
+	print_objidbuf((uint8_t *)(&qi[1]));
+
+	free(qi);
 }
 
 static void
@@ -943,6 +1014,8 @@ int main(int argc, char *argv[])
 		secdesc(f);
 	else if (!strcmp(argv[optind], "quota"))
 		quota(f);
+	else if (!strcmp(argv[1], "fsctl-getobjid"))
+		fsctlgetobjid(f);
 	else {
 		fprintf(stderr, "Unknown command %s\n", argv[optind]);
 		exit(1);

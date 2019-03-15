@@ -62,6 +62,8 @@ COMMAND
 
 `filestandardinfo`: Prints the FileStandardInformation class
 
+`fsctl-getobjid`: Prints the ObjectID
+
 `quota`: Print the quota for the volume in the form
 - SID Length
 - Change Time
