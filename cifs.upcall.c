@@ -126,6 +126,7 @@ drop_all_capabilities(void)
 static int
 trim_capabilities(bool unused)
 {
+	(void)unused;
 	return 0;
 }
 
