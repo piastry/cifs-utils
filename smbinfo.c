@@ -88,7 +88,9 @@ usage(char *name)
 		"  secdesc:\n"
 		"      Prints the security descriptor for a cifs file.\n"
 		"  quota:\n"
-		"      Prints the quota for a cifs file.\n",
+		"      Prints the quota for a cifs file.\n"
+		"  fsctl-getobjid:\n"
+		"      Prints the objectid of the file and GUID of the underlying volume.\n",
 		name);
 	exit(1);
 }
