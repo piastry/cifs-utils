@@ -89,6 +89,8 @@ usage(char *name)
 		"      Prints the security descriptor for a cifs file.\n"
 		"  quota:\n"
 		"      Prints the quota for a cifs file.\n"
+		"  list-snapshots:\n"
+		"      List the previous versions of the volume that backs this file.\n"
 		"  fsctl-getobjid:\n"
 		"      Prints the objectid of the file and GUID of the underlying volume.\n",
 		name);
@@ -882,7 +884,6 @@ print_quota(unsigned char *sd)
 	uint32_t u32, neo;
 	uint64_t u64;
 	struct timeval tv;
-	struct tm;
 	int i, off = 0;
 
 one_more:
@@ -966,6 +967,109 @@ quota(int f)
 	free(qi);
 }
 
+
+struct smb_snapshot_array {
+	int32_t	number_of_snapshots;
+	int32_t	number_of_snapshots_returned;
+	int32_t	snapshot_array_size;
+	char snapshot_data[0];
+};
+
+
+#define GMT_NAME_LEN 24 /* length of a @GMT- name */
+#define GMT_FORMAT "@GMT-%Y.%m.%d-%H.%M.%S"
+
+#define NTFS_TIME_OFFSET ((unsigned long long)(369*365 + 89) * 24 * 3600 * 10000000)
+
+static void print_snapshots(struct smb_snapshot_array *psnap)
+{
+	int current_snapshot_entry = 0;
+	char gmt_token[GMT_NAME_LEN + 1] = {0};
+	int i;
+	int j = 0;
+	struct tm tm;
+	unsigned long long dce_time;
+
+	printf("Number of snapshots: %d Number of snapshots returned: %d\n",
+		psnap->number_of_snapshots,
+		psnap->number_of_snapshots_returned);
+	printf("Snapshot list in GMT (Coordinated UTC Time) and SMB format (100 nanosecond units needed for snapshot mounts):");
+	for (i = 0; i < psnap->snapshot_array_size; i++) {
+		if (psnap->snapshot_data[i] == '@') {
+			j = 0;
+			current_snapshot_entry++;
+			printf("\n%d) GMT:", current_snapshot_entry);
+		}
+		if (psnap->snapshot_data[i] != 0) {
+			gmt_token[j] = psnap->snapshot_data[i];
+			j++;
+		}
+		if (j == GMT_NAME_LEN) {
+			printf("%s", gmt_token);
+			j = 0;
+			strptime(gmt_token, GMT_FORMAT, &tm);
+			dce_time = timegm(&tm) * 10000000 + NTFS_TIME_OFFSET;
+			printf("\n   SMB3:%llu", dce_time);
+		}
+	}
+	printf("\n");
+}
+
+#define CIFS_ENUMERATE_SNAPSHOTS _IOR(CIFS_IOCTL_MAGIC, 6, struct smb_snapshot_array)
+
+#define MIN_SNAPSHOT_ARRAY_SIZE 16 /* See MS-SMB2 section 3.3.5.15.1 */
+
+static void
+list_snapshots(int f)
+{
+
+	struct smb_snapshot_array snap_inf;
+	struct smb_snapshot_array *buf;
+
+	/*
+	 * When first field in structure we pass in here is zero, cifs.ko can
+	 * recognize that this is the first query and that it must set the SMB3
+	 * FSCTL response buffer size (in the request) to exactly 16 bytes
+	 * (which is required by some servers to process the initial query)
+	 */
+	snap_inf.number_of_snapshots = 0;
+	snap_inf.number_of_snapshots_returned = 0;
+	snap_inf.snapshot_array_size = sizeof(struct smb_snapshot_array);
+
+	/* Query the number of snapshots so we know how much to allocate */
+	if (ioctl(f, CIFS_ENUMERATE_SNAPSHOTS, &snap_inf) < 0) {
+		fprintf(stderr, "Querying snapshots failed with %s\n", strerror(errno));
+		exit(1);
+	}
+
+	if (snap_inf.number_of_snapshots == 0)
+		return;
+
+	/* Now that we know the size, query the list from the server */
+
+	buf = malloc(snap_inf.snapshot_array_size + MIN_SNAPSHOT_ARRAY_SIZE);
+
+	if (buf == NULL) {
+		printf("Failed, out of memory.\n");
+		exit(1);
+	}
+	/*
+	 * first parm is non-zero which allows cifs.ko to recognize that this is
+	 * the second query (it has to set response buf size larger)
+	 */
+	buf->number_of_snapshots = snap_inf.number_of_snapshots;
+
+	buf->snapshot_array_size = snap_inf.snapshot_array_size;
+
+	if (ioctl(f, CIFS_ENUMERATE_SNAPSHOTS, buf) < 0) {
+		fprintf(stderr, "Querying snapshots failed with %s\n", strerror(errno));
+		exit(1);
+	}
+
+	print_snapshots(buf);
+	free(buf);
+}
+
 int main(int argc, char *argv[])
 {
 	int c;
@@ -1016,6 +1120,8 @@ int main(int argc, char *argv[])
 		secdesc(f);
 	else if (!strcmp(argv[optind], "quota"))
 		quota(f);
+	else if (!strcmp(argv[optind], "list-snapshots"))
+		list_snapshots(f);
 	else if (!strcmp(argv[1], "fsctl-getobjid"))
 		fsctlgetobjid(f);
 	else {

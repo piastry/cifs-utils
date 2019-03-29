@@ -64,6 +64,8 @@ COMMAND
 
 `fsctl-getobjid`: Prints the ObjectID
 
+`list-snapshots`: Lists the previous versions of the volume that backs this file
+
 `quota`: Print the quota for the volume in the form
 - SID Length
 - Change Time
