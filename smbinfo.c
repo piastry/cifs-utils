@@ -85,14 +85,14 @@ usage(char *name)
 		"      Prints FilePositionInfo for a cifs file.\n"
 		"  filestandardinfo:\n"
 		"      Prints FileStandardInfo for a cifs file.\n"
-		"  secdesc:\n"
-		"      Prints the security descriptor for a cifs file.\n"
-		"  quota:\n"
-		"      Prints the quota for a cifs file.\n"
+		"  fsctl-getobjid:\n"
+		"      Prints the objectid of the file and GUID of the underlying volume.\n"
 		"  list-snapshots:\n"
 		"      List the previous versions of the volume that backs this file.\n"
-		"  fsctl-getobjid:\n"
-		"      Prints the objectid of the file and GUID of the underlying volume.\n",
+		"  quota:\n"
+		"      Prints the quota for a cifs file.\n"
+		"  secdesc:\n"
+		"      Prints the security descriptor for a cifs file.\n",
 		name);
 	exit(1);
 }
@@ -1116,14 +1116,14 @@ int main(int argc, char *argv[])
 		filepositioninfo(f);
 	else if (!strcmp(argv[optind], "filestandardinfo"))
 		filestandardinfo(f);
-	else if (!strcmp(argv[optind], "secdesc"))
-		secdesc(f);
-	else if (!strcmp(argv[optind], "quota"))
-		quota(f);
+	else if (!strcmp(argv[optind], "fsctl-getobjid"))
+		fsctlgetobjid(f);
 	else if (!strcmp(argv[optind], "list-snapshots"))
 		list_snapshots(f);
-	else if (!strcmp(argv[1], "fsctl-getobjid"))
-		fsctlgetobjid(f);
+	else if (!strcmp(argv[optind], "quota"))
+		quota(f);
+	else if (!strcmp(argv[optind], "secdesc"))
+		secdesc(f);
 	else {
 		fprintf(stderr, "Unknown command %s\n", argv[optind]);
 		exit(1);
