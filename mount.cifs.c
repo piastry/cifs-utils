@@ -267,13 +267,13 @@ static int mount_usage(FILE * stream)
 	fprintf(stream,
 		"\n\tsep=<char>,iocharset=<codepage>,suid,nosuid,exec,noexec,serverino,");
 	fprintf(stream,
-		"\n\tmapchars,nomapchars,nolock,servernetbiosname=<SRV_RFC1001NAME>");
+		"\n\tnoserverino,mapchars,nomapchars,nolock,servernetbiosname=<SRV_RFC1001NAME>");
 	fprintf(stream,
-		"\n\tdirectio,nounix,cifsacl,sec=<authentication mechanism>,sign,seal,fsc,");
+		"\n\tcache=<strict|none|loose>,nounix,cifsacl,sec=<authentication mechanism>,");
 	fprintf(stream,
-		"\n\tsnapshot=<time>,nosharesock,persistenthandles,resilienthandles,rdma,");
+		"\n\tsign,seal,fsc,snapshot=<time>,nosharesock,persistenthandles,resilienthandles,");
 	fprintf(stream,
-		"\n\tvers=<smb_dialect>,cruid");
+		"\n\trdma,vers=<smb_dialect>,cruid");
 	fprintf(stream,
 		"\n\nOptions not needed for servers supporting CIFS Unix extensions");
 	fprintf(stream,
@@ -290,7 +290,9 @@ static int mount_usage(FILE * stream)
 	fprintf(stream,
 		"\n\tnointr,ignorecase,noposixpaths,noacl,prefixpath=<path>,nobrl,");
 	fprintf(stream,
-		"\n\techo_interval=<seconds>,actimeo=<seconds>,max_credits=<credits>");
+		"\n\techo_interval=<seconds>,actimeo=<seconds>,max_credits=<credits>,");
+	fprintf(stream,
+		"\n\tbsize=<size>");
 	fprintf(stream,
 		"\n\nOptions are described in more detail in the manual page");
 	fprintf(stream, "\n\tman 8 mount.cifs\n");
