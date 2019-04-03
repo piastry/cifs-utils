@@ -269,20 +269,28 @@ static int mount_usage(FILE * stream)
 	fprintf(stream,
 		"\n\tmapchars,nomapchars,nolock,servernetbiosname=<SRV_RFC1001NAME>");
 	fprintf(stream,
-		"\n\tdirectio,nounix,cifsacl,sec=<authentication mechanism>,sign,seal,fsc");
+		"\n\tdirectio,nounix,cifsacl,sec=<authentication mechanism>,sign,seal,fsc,");
+	fprintf(stream,
+		"\n\tsnapshot=<time>,nosharesock,persistenthandles,resilienthandles,rdma,");
+	fprintf(stream,
+		"\n\tvers=<smb_dialect>,cruid");
 	fprintf(stream,
 		"\n\nOptions not needed for servers supporting CIFS Unix extensions");
 	fprintf(stream,
 		"\n\t(e.g. unneeded for mounts to most Samba versions):");
 	fprintf(stream,
-		"\n\tuid=<uid>,gid=<gid>,dir_mode=<mode>,file_mode=<mode>,sfu");
+		"\n\tuid=<uid>,gid=<gid>,dir_mode=<mode>,file_mode=<mode>,sfu,");
+	fprintf(stream,
+		"\n\tmfsymlinks,idsfromsid");
 	fprintf(stream, "\n\nRarely used options:");
 	fprintf(stream,
 		"\n\tport=<tcpport>,rsize=<size>,wsize=<size>,unc=<unc_name>,ip=<ip_address>,");
 	fprintf(stream,
 		"\n\tdev,nodev,nouser_xattr,netbiosname=<OUR_RFC1001NAME>,hard,soft,intr,");
 	fprintf(stream,
-		"\n\tnointr,ignorecase,noposixpaths,noacl,prefixpath=<path>,nobrl");
+		"\n\tnointr,ignorecase,noposixpaths,noacl,prefixpath=<path>,nobrl,");
+	fprintf(stream,
+		"\n\techo_interval=<seconds>,actimeo=<seconds>,max_credits=<credits>");
 	fprintf(stream,
 		"\n\nOptions are described in more detail in the manual page");
 	fprintf(stream, "\n\tman 8 mount.cifs\n");
