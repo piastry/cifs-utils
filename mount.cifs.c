@@ -43,6 +43,7 @@
 #include <limits.h>
 #include <paths.h>
 #include <libgen.h>
+#include <time.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
 #ifdef HAVE_SYS_FSUID_H
@@ -161,10 +162,16 @@
 #define OPT_BKUPUID    30
 #define OPT_BKUPGID    31
 #define OPT_NOFAIL     32
+#define OPT_SNAPSHOT   33
 
 #define MNT_TMP_FILE "/.mtab.cifs.XXXXXX"
 
-/* struct for holding parsed mount info for use by privleged process */
+#define GMT_NAME_LEN 24 /* length of a @GMT- name */
+#define GMT_FORMAT "@GMT-%Y.%m.%d-%H.%M.%S"
+
+#define NTFS_TIME_OFFSET ((unsigned long long)(369*365 + 89) * 24 * 3600 * 10000000)
+
+/* struct for holding parsed mount info for use by privileged process */
 struct parsed_mount_info {
 	unsigned long flags;
 	char host[NI_MAXHOST + 1];
@@ -271,9 +278,9 @@ static int mount_usage(FILE * stream)
 	fprintf(stream,
 		"\n\tcache=<strict|none|loose>,nounix,cifsacl,sec=<authentication mechanism>,");
 	fprintf(stream,
-		"\n\tsign,seal,fsc,snapshot=<time>,nosharesock,persistenthandles,resilienthandles,");
+		"\n\tsign,seal,fsc,snapshot=<token|time>,nosharesock,persistenthandles,");
 	fprintf(stream,
-		"\n\trdma,vers=<smb_dialect>,cruid");
+		"\n\tresilienthandles,rdma,vers=<smb_dialect>,cruid");
 	fprintf(stream,
 		"\n\nOptions not needed for servers supporting CIFS Unix extensions");
 	fprintf(stream,
@@ -773,6 +780,8 @@ static int parse_opt_token(const char *token)
 		return OPT_NOFAIL;
 	if (strncmp(token, "x-", 2) == 0)
 		return OPT_IGNORE;
+	if (strncmp(token, "snapshot", 8) == 0)
+		return OPT_SNAPSHOT;
 
 	return OPT_ERROR;
 }
@@ -793,16 +802,19 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 	int got_uid = 0;
 	int got_cruid = 0;
 	int got_gid = 0;
+	int got_snapshot = 0;
 	uid_t uid, cruid = 0, bkupuid = 0;
 	gid_t gid, bkupgid = 0;
 	char *ep;
 	struct passwd *pw;
 	struct group *gr;
 	/*
-	 * max 32-bit uint in decimal is 4294967295 which is 10 chars wide
-	 * +1 for NULL, and +1 for good measure
+	 * max 64-bit uint in decimal is 18446744073709551615 which is 20 chars
+	 * wide +1 for NULL, and +1 for good measure
 	 */
-	char txtbuf[12];
+	char txtbuf[22];
+	unsigned long long snapshot;
+	struct tm tm;
 
 	/* make sure we're starting from beginning */
 	out[0] = '\0';
@@ -1130,6 +1142,19 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 		case OPT_NOFAIL:
 			parsed_info->nofail = 1;
 			goto nocopy;
+		case OPT_SNAPSHOT:
+			if (!value || !*value)
+				goto nocopy;
+			if (strncmp(value, "@GMT-", 5))
+				break;
+			if ((strlen(value) != GMT_NAME_LEN) ||
+			    (strptime(value, GMT_FORMAT, &tm) == NULL)) {
+				fprintf(stderr, "bad snapshot token\n");
+				return EX_USAGE;
+			}
+			snapshot = timegm(&tm) * 10000000 + NTFS_TIME_OFFSET;
+			got_snapshot = 1;
+			goto nocopy;
 		}
 
 		/* check size before copying option to buffer */
@@ -1225,7 +1250,7 @@ nocopy:
 	if (got_bkupgid) {
 		word_len = snprintf(txtbuf, sizeof(txtbuf), "%u", bkupgid);
 
-		/* comma + "backkupgid=" + terminating NULL == 12 */
+		/* comma + "backupgid=" + terminating NULL == 12 */
 		if (out_len + word_len + 12 > MAX_OPTIONS_LEN) {
 			fprintf(stderr, "Options string too long\n");
 			return EX_USAGE;
@@ -1236,6 +1261,21 @@ nocopy:
 			out_len++;
 		}
 		snprintf(out + out_len, word_len + 11, "backupgid=%s", txtbuf);
+	}
+	if (got_snapshot) {
+		word_len = snprintf(txtbuf, sizeof(txtbuf), "%llu", snapshot);
+
+		/* comma + "snapshot=" + terminating NULL == 11 */
+		if (out_len + word_len + 11 > MAX_OPTIONS_LEN) {
+			fprintf(stderr, "Options string too long\n");
+			return EX_USAGE;
+		}
+
+		if (out_len) {
+			strlcat(out, ",", MAX_OPTIONS_LEN);
+			out_len++;
+		}
+		snprintf(out + out_len, word_len + 11, "snapshot=%s", txtbuf);
 	}
 
 	return 0;
