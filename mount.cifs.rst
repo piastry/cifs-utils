@@ -15,13 +15,13 @@ SYNOPSIS
 
 This tool is part of the cifs-utils suite.
 
-``mount.cifs`` mounts a Linux CIFS filesystem. It is usually invoked
-indirectly by the mount(8) command when using the "-t cifs"
+``mount.cifs`` mounts a CIFS or SMB3 filesystem from Linux. It is
+usually invoked indirectly by the mount(8) command when using the "-t cifs"
 option. This command only works in Linux, and the kernel must support
-the cifs filesystem. The CIFS protocol is the successor to the SMB
-protocol and is supported by most Windows servers and many other
-commercial servers and Network Attached Storage appliances as well as
-by the popular Open Source server Samba.
+the cifs filesystem. The SMB3 protocol is the successor to the CIFS (SMB)
+protocol and is supported by most Windows servers, Azure (cloud storage),
+Macs and many other commercial servers and Network Attached Storage
+appliances as well as by the popular Open Source server Samba.
 
 The mount.cifs utility attaches the UNC name (exported network
 resource) specified as service (using ``//server/share`` syntax, where
@@ -266,6 +266,13 @@ handlecache
 nohandlecache
   Disable caching of the share root directory handle.
 
+handletimeout=arg
+  The time (in milliseconds) for which the server should reserve the handle after
+  a failover waiting for the client to reconnect.  When mounting with
+  resilienthandles or persistenthandles mount option, or when their use is
+  requested by the server (continuous availability shares) then this parameter
+  overrides the server default handle timeout (which for most servers is 120 seconds).
+
 rwpidforward
   Forward pid of a process who opened a file to any read or write
   operation on that file. This prevent applications like wine(1) from
@@ -387,6 +394,12 @@ persistenthandles
 nopersistenthandles
   (default) Disable persistent handles.
 
+snapshot=time
+   Mount a specific snapshot of the remote share. ``time`` must be a
+   positive integer identifying the snapshot requested (in 100-nanosecond
+   units that have elapsed since January 1, 1601, or alternatively it can
+   be specified in GMT format e.g. @GMT-2019.03.27-20.52.19)
+
 nobrl
   Do not send byte range lock requests to the server. This is necessary
   for certain applications that break with cifs style mandatory byte
@@ -401,7 +414,7 @@ locallease
   Check cached leases locally instead of querying the server.
 
 sfu
-  When the CIFS Unix Extensions are not negotiated, attempt to create
+  When the CIFS or SMB3 Unix Extensions are not negotiated, attempt to create
   device files and fifos in a format compatible with Services for Unix
   (SFU). In addition retrieve bits 10-12 of the mode via the
   ``SETFILEBITS`` extended attribute (as SFU does). In the future the
@@ -450,11 +463,11 @@ noserverino
 
   See section `INODE NUMBERS`_ for more information.
 
-unix|linux
+posix|unix|linux
   (default) Enable Unix Extensions for this mount. Requires CIFS
   (vers=1.0) or SMB3.1.1 (vers=3.1.1) and a server supporting them.
 
-nounix|nolinux
+noposix|nounix|nolinux
   Disable the Unix Extensions for this mount. This can be useful in
   order to turn off multiple settings at once. This includes POSIX acls,
   POSIX locks, POSIX paths, symlink support and retrieving
@@ -479,38 +492,35 @@ nosharesock
   Do not try to reuse sockets if the system is already connected to
   the server via an existing mount point. This will make the client
   always make a new connection to the server no matter what he is
-  already connected to.
+  already connected to. This can be useful in simulating multiple
+  clients connecting to the same server, as each mount point
+  will use a different TCP socket.
 
 noblocksend
   Send data on the socket using non blocking operations (MSG_DONTWAIT flag).
 
 rsize=bytes
   Maximum amount of data that the kernel will request in a read request
-  in bytes. Prior to kernel 3.2.0, the default was 16k, and the maximum
-  size was limited by the ``CIFSMaxBufSize`` module parameter. As of
-  kernel 3.2.0, the behavior varies according to whether POSIX
-  extensions are enabled on the mount and the server supports large
-  POSIX reads. If they are, then the default is 1M, and the maximum is
-  16M. If they are not supported by the server, then the default is 60k
-  and the maximum is around 127k. The reason for the 60k is because it's
-  the maximum size read that windows servers can fill. Note that this
-  value is a maximum, and the client may settle on a smaller size to
-  accommodate what the server supports. In kernels prior to 3.2.0, no
-  negotiation is performed.
+  in bytes. Maximum size that servers will accept is typically 8MB for SMB3
+  or later dialects. Default requested during mount is 4MB. Prior to the 4.20
+  kernel the default requested was 1MB. Prior to the SMB2.1 dialect the
+  maximum was usually 64K.
 
 wsize=bytes
   Maximum amount of data that the kernel will send in a write request in
-  bytes. Prior to kernel 3.0.0, the default and maximum was 57344 (14 \*
-  4096 pages). As of 3.0.0, the default depends on whether the client
-  and server negotiate large writes via POSIX extensions. If they do,
-  then the default is 1M, and the maximum allowed is 16M. If they do
-  not, then the default is 65536 and the maximum allowed is 131007. Note
-  that this value is just a starting point for negotiation in 3.0.0 and
-  up. The client and server may negotiate this size downward according
-  to the server's capabilities. In kernels prior to 3.0.0, no
-  negotiation is performed. It can end up with an existing superblock if
-  this value isn't specified or it's greater or equal than the existing
-  one.
+  bytes. Maximum size that servers will accept is typically 8MB for SMB3
+  or later dialects. Default requested during mount is 4MB. Prior to the 4.20
+  kernel the default requested was 1MB. Prior to the SMB2.1 dialect the
+  maximum was usually 64K.
+
+bsize=bytes
+  Override the default blocksize (1MB) reported on SMB3 files (requires
+  kernel version of 5.1 or later). Prior to kernel version 5.1, the
+  blocksize was always reported as 16K instead of 1MB (and was not
+  configurable) which can hurt the performance of tools like cp and scp
+  (especially for uncached I/O) which decide on the read and write size
+  to use for file copies based on the inode blocksize. bsize may not be
+  less than 16K or greater than 16M.
 
 max_credits=n
   Maximum credits the SMB2 client can have. Default is 32000. Must be
@@ -885,14 +895,26 @@ CONFIGURATION
 The primary mechanism for making configuration changes and for reading
 debug information for the cifs vfs is via the Linux /proc
 filesystem. In the directory */proc/fs/cifs* are various
-configuration files and pseudo files which can display debug
-information. There are additional startup options such as maximum
-buffer size and number of buffers which only may be set when the
+configuration files and pseudo files which can display debug information
+and performance statistics. There are additional startup options such as
+maximum buffer size and number of buffers which only may be set when the
 kernel cifs vfs (cifs.ko module) is loaded. These can be seen by
 running the ``modinfo`` utility against the file cifs.ko which will
 list the options that may be passed to cifs during module installation
 (device driver load). For more information see the kernel file
-*fs/cifs/README*.
+*fs/cifs/README*. When configuring dynamic tracing (trace-cmd)
+note that the list of SMB3 events which can be enabled can be seen at:
+*/sys/kernel/debug/tracing/events/cifs/*.
+
+********
+SECURITY
+********
+
+The use of SMB2.1 or later (including the latest dialect SMB3.1.1)
+is recommended for improved security and SMB1 is no longer requested
+by default at mount time. Old dialects such as CIFS (SMB1, ie vers=1.0)
+have much weaker security. Use of CIFS (SMB1) can be disabled by
+modprobe cifs disable_legacy_dialects=y.
 
 ****
 BUGS
@@ -913,8 +935,8 @@ bugs (minimum: mount.cifs (try ``mount.cifs -V``), kernel (see
 VERSION
 *******
 
-This man page is correct for version 1.74 of the cifs vfs filesystem
-(roughly Linux kernel 3.0).
+This man page is correct for version 2.18 of the cifs vfs filesystem
+(roughly Linux kernel 5.0).
 
 ********
 SEE ALSO
