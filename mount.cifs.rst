@@ -398,7 +398,8 @@ snapshot=time
    Mount a specific snapshot of the remote share. ``time`` must be a
    positive integer identifying the snapshot requested (in 100-nanosecond
    units that have elapsed since January 1, 1601, or alternatively it can
-   be specified in GMT format e.g. @GMT-2019.03.27-20.52.19)
+   be specified in GMT format e.g. @GMT-2019.03.27-20.52.19). Supported
+   in the Linux kernel starting from v4.19.
 
 nobrl
   Do not send byte range lock requests to the server. This is necessary
