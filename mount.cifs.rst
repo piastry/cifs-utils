@@ -955,6 +955,6 @@ AUTHOR
 
 Steve French
 
-The maintainer of the Linux cifs vfs and the userspace tool mount.cifs
-is Steve French. The Linux CIFS Mailing list is the preferred place to
-ask questions regarding these programs.
+The maintainer of the Linux cifs vfs is Steve French. The maintainer of the
+cifs-utils suite of user space tools is Pavel Shilovsky. The Linux CIFS Mailing
+list is the preferred place to ask questions regarding these programs.
