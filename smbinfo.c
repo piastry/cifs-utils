@@ -941,12 +941,12 @@ quota(int f)
 	char *buf;
 	int i;
 
-	qi = malloc(sizeof(struct smb_query_info) + 16384);
-	memset(qi, 0, sizeof(struct smb_query_info) + 16384);
+	qi = malloc(sizeof(struct smb_query_info) + INPUT_BUFFER_LENGTH);
+	memset(qi, 0, sizeof(struct smb_query_info) + INPUT_BUFFER_LENGTH);
 	qi->info_type = 0x04;
 	qi->file_info_class = 0;
 	qi->additional_information = 0; /* Owner, Group, Dacl */
-	qi->input_buffer_length = 16384;
+	qi->input_buffer_length = INPUT_BUFFER_LENGTH;
 
 	buf = (char *)&qi[1];
 	buf[0] = 0; /* return single */
