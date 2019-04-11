@@ -67,6 +67,8 @@ COMMAND
 
 `fsctl-getobjid`: Prints the ObjectID
 
+`getcompression`: Prints the compression setting for the file.
+
 `list-snapshots`: Lists the previous versions of the volume that backs this file
 
 `quota`: Print the quota for the volume in the form

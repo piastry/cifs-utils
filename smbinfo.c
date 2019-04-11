@@ -89,6 +89,8 @@ usage(char *name)
 		"      Prints FileStandardInfo for a cifs file.\n"
 		"  fsctl-getobjid:\n"
 		"      Prints the objectid of the file and GUID of the underlying volume.\n"
+		"  getcompression:\n"
+		"      Prints the compression setting for the file.\n"
 		"  list-snapshots:\n"
 		"      List the previous versions of the volume that backs this file.\n"
 		"  quota:\n"
@@ -248,6 +250,50 @@ fsctlgetobjid(int f)
 		exit(1);
 	}
 	print_objidbuf((uint8_t *)(&qi[1]));
+
+	free(qi);
+}
+
+static void
+print_getcompression(uint8_t *sd)
+{
+	uint16_t u16;
+
+	memcpy(&u16, &sd[0], 2);
+	u16 = le16toh(u16);
+
+	printf("Compression: ");
+	switch (u16) {
+	case 0:
+		printf("(0) NONE\n");
+		break;
+	case 2:
+		printf("(2) LZNT1\n");
+		break;
+	default:
+		printf("(%d) UNKNOWN\n", u16);
+		break;
+	}
+}
+
+static void
+getcompression(int f)
+{
+	struct smb_query_info *qi;
+
+	qi = malloc(sizeof(struct smb_query_info) + 2);
+	memset(qi, 0, sizeof(qi) + 2);
+	qi->info_type = 0x9003c;
+	qi->file_info_class = 0;
+	qi->additional_information = 0;
+	qi->input_buffer_length = 2;
+	qi->flags = PASSTHRU_FSCTL;
+
+	if (ioctl(f, CIFS_QUERY_INFO, qi) < 0) {
+		fprintf(stderr, "ioctl failed with %s\n", strerror(errno));
+		exit(1);
+	}
+	print_getcompression((uint8_t *)(&qi[1]));
 
 	free(qi);
 }
@@ -1135,6 +1181,8 @@ int main(int argc, char *argv[])
 		filestandardinfo(f);
 	else if (!strcmp(argv[optind], "fsctl-getobjid"))
 		fsctlgetobjid(f);
+	else if (!strcmp(argv[optind], "getcompression"))
+		getcompression(f);
 	else if (!strcmp(argv[optind], "list-snapshots"))
 		list_snapshots(f);
 	else if (!strcmp(argv[optind], "quota"))
