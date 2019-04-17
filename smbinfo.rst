@@ -11,7 +11,7 @@ Userspace helper to display SMB-specific file information for the Linux SMB clie
 SYNOPSIS
 ********
 
-  smbinfo [-v] [-V] {command} {file system object}
+  smbinfo [-v] [-h] [-V] {command} {file system object}
 
 ***********
 DESCRIPTION
@@ -37,6 +37,9 @@ OPTIONS
 
 -V
   Verbose output.
+
+-h
+  Print help explaining the command line options.
 
 *******
 COMMAND

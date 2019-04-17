@@ -64,6 +64,8 @@ usage(char *name)
 {
 	fprintf(stderr, "Usage: %s [-V] <command> <file>\n"
 		"-V for verbose output\n"
+		"-h display this help text\n"
+		"-v print smbinfo version\n"
 		"Commands are\n"
 		"  fileaccessinfo:\n"
 		"      Prints FileAccessInfo for a cifs file.\n"
@@ -94,6 +96,14 @@ usage(char *name)
 		"  secdesc:\n"
 		"      Prints the security descriptor for a cifs file.\n",
 		name);
+	exit(1);
+}
+
+static void
+short_usage(char *name)
+{
+	fprintf(stderr, "Usage: %s [-v] [-V] <command> <file>\n"
+		"Try 'smbinfo -h' for more information.\n", name);
 	exit(1);
 }
 
@@ -1075,7 +1085,11 @@ int main(int argc, char *argv[])
 	int c;
 	int f;
 
-	while ((c = getopt_long(argc, argv, "vV", NULL, NULL)) != -1) {
+	if (argc < 2) {
+		short_usage(argv[0]);
+	}
+
+	while ((c = getopt_long(argc, argv, "vVh", NULL, NULL)) != -1) {
 		switch (c) {
 		case 'v':
 			printf("smbinfo version %s\n", VERSION);
@@ -1083,15 +1097,18 @@ int main(int argc, char *argv[])
 		case 'V':
 			verbose = 1;
 			break;
-		default:
+		case 'h':
 			usage(argv[0]);
+			break;
+		default:
+			short_usage(argv[0]);
 		}
 	}
 
-	if (optind >= argc - 1)
-		usage(argv[0]);
+	if (optind >= argc -1)
+		short_usage(argv[0]);
 
-	if ((f = open(argv[optind + 1], O_RDONLY)) < 0) {
+	if ((f = open(argv[optind + 1 ], O_RDONLY)) < 0) {
 		fprintf(stderr, "Failed to open %s\n", argv[optind + 1]);
 		exit(1);
 	}
