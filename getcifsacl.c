@@ -330,7 +330,7 @@ getcifsacl_usage(const char *prog)
 	fprintf(stderr,
 	"%s: Display CIFS/NTFS ACL in a security descriptor of a file object\n",
 		prog);
-	fprintf(stderr, "Usage: %s [option] <file_name>\n", prog);
+	fprintf(stderr, "Usage: %s [option] <file_name1> [<file_name2>,<file_name3>,...]\n", prog);
 	fprintf(stderr, "Valid options:\n");
 	fprintf(stderr, "\t-h	Display this help text\n");
 	fprintf(stderr, "\n");
@@ -410,7 +410,7 @@ main(const int argc, char *const argv[])
 
 	if (optind >= argc) {
 		printf("you must specify a filename after options.\n");
-		printf("Usage: getcifsacl [option] <file_name>\n");
+		printf("Usage: getcifsacl [option] <file_name1> [<file_name2>,<file_name3>,...]\n");
 		goto out;
 	}
 
