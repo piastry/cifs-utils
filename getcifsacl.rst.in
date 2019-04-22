@@ -43,6 +43,9 @@ OPTIONS
   flags are displayed in hexadecimal format, a SID is not mapped to a
   name.
 
+-R
+  List the ACLs of all files and directories recursively.
+
 *****
 NOTES
 *****

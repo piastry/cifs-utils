@@ -37,10 +37,12 @@
 #include <sys/xattr.h>
 #include "cifsacl.h"
 #include "idmap_plugin.h"
+#include <ftw.h>
 
 static void *plugin_handle;
 static bool plugin_loaded;
 static char *execname;
+static bool raw = false;
 
 static void
 print_each_ace_mask(uint32_t mask)
@@ -336,12 +338,14 @@ getcifsacl_usage(const char *prog)
 	fprintf(stderr, "\n");
 	fprintf(stderr, "\t-v	Version of the program\n");
 	fprintf(stderr, "\n");
+	fprintf(stderr, "\t-R 	recurse into subdirectories\n");
+	fprintf(stderr, "\n");
 	fprintf(stderr, "\t-r	Display raw values of the ACE fields\n");
 	fprintf(stderr, "\nRefer to getcifsacl(1) manpage for details\n");
 }
 
 static void
-getcifsacl(const char *filename, bool raw)
+getcifsacl(const char *filename)
 {
 	ssize_t attrlen;
 	size_t bufsize = BUFSIZE;
@@ -381,12 +385,21 @@ cifsacl:
 	free(attrval);
 }
 
+static int recursive(const char *filename, const struct stat *sb, int tflag, struct FTW *ftwbuf)
+{
+	(void)sb;
+	(void)tflag;
+	(void)ftwbuf;
+	getcifsacl(filename);
+	return 0;
+}
+
 int
 main(const int argc, char *const argv[])
 {
 	int c, ret = 0;
-	bool raw = false;
 	execname = basename(argv[0]);
+	int do_recursive = 0;
 
 	if (argc < 2) {
 		fprintf(stderr, "%s: you must specify a filename.\n", execname);
@@ -394,13 +407,16 @@ main(const int argc, char *const argv[])
 		goto out;
 	}
 
-	while ((c = getopt_long(argc, argv, "rhv", NULL, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "Rrhv", NULL, NULL)) != -1) {
 		switch (c) {
 		case 'v':
 			printf("Version: %s\n", VERSION);
 			goto out;
 		case 'r':
 			raw = true;
+			break;
+		case 'R':
+			do_recursive = 1;
 			break;
 		default:
 			getcifsacl_usage(execname);
@@ -423,8 +439,14 @@ main(const int argc, char *const argv[])
 			plugin_loaded = true;
 	}
 
-	for(; optind < argc; optind++)
-		getcifsacl(argv[optind], raw);
+	for(; optind < argc; optind++) {
+		if(do_recursive) {
+			if (nftw(argv[optind], recursive, 20, 0) == -1)
+				fprintf(stderr, "Invalid filename %s: %s\n", argv[optind], strerror(errno));
+		}
+		else
+			getcifsacl(argv[optind]);
+	}
 
 out:
 	if (plugin_loaded)
