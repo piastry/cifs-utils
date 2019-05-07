@@ -16,6 +16,7 @@ smb_info()
 	      filepositioninfo
 	      filestandardinfo
 	      fsctl-getobjid
+	      getcompression
 	      list-snapshots
 	      quota
 	      secdesc"
@@ -25,7 +26,7 @@ smb_info()
 			;;
 		'fileaccessinfo'|'filealigninfo'|'fileallinfo'|'filebasicinfo'|'fileeainfo'|'filefsfullsizeinfo'|\
 		'fileinternalinfo'|'filemodeinfo'|'filepositioninfo'|'filestandardinfo'|'fsctl-getobjid'|\
-		'list-snapshots'|'quota'|'secdesc')
+		'getcompression'|'list-snapshots'|'quota'|'secdesc')
 			local IFS=$'\n'
 			compopt -o filenames
 			COMPREPLY=( $(compgen -f -o dirnames -- ${cur:-""}) )
