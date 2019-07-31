@@ -672,7 +672,7 @@ build_cmdline_aces(char **arrptr, int numcaces)
 			goto build_cmdline_aces_ret;
 		}
 
-		cacesptr[i] = malloc(sizeof(struct cifs_ace));
+		cacesptr[i] = calloc(1, sizeof(struct cifs_ace));
 		if (!cacesptr[i]) {
 			printf("%s: ACE alloc error %d\n", __func__, errno);
 			goto build_cmdline_aces_ret;
