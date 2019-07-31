@@ -206,7 +206,7 @@ alloc_sec_desc(struct cifs_ntsd *pntsd, struct cifs_ntsd **npntsd,
 	acessize = aces * sizeof(struct cifs_ace);
 	bufsize = size + acessize;
 
-	*npntsd = malloc(bufsize);
+	*npntsd = calloc(1, bufsize);
 	if (!*npntsd) {
 		printf("%s: Memory allocation failure", __func__);
 		return errno;
