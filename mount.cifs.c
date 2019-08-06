@@ -1942,6 +1942,9 @@ restore_privs:
 		gid_t __attribute__((unused)) gignore = setfsgid(oldfsgid);
 	}
 
+	if (rc) {
+		free(*mountpointp);
+	}
 	return rc;
 }
 
@@ -2044,8 +2047,10 @@ int main(int argc, char **argv)
 
 	/* chdir into mountpoint as soon as possible */
 	rc = acquire_mountpoint(&mountpoint);
-	if (rc)
+	if (rc) {
+		free(orgoptions);
 		return rc;
+	}
 
 	/*
 	 * mount.cifs does privilege separation. Most of the code to handle
@@ -2064,6 +2069,8 @@ int main(int argc, char **argv)
 		/* child */
 		rc = assemble_mountinfo(parsed_info, thisprogram, mountpoint,
 					orig_dev, orgoptions);
+		free(orgoptions);
+		free(mountpoint);
 		return rc;
 	} else {
 		/* parent */
@@ -2209,5 +2216,6 @@ mount_exit:
 	}
 	free(options);
 	free(orgoptions);
+	free(mountpoint);
 	return rc;
 }
