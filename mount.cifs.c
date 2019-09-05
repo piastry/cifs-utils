@@ -247,7 +247,6 @@ check_fstab(const char *progname, const char *mountpoint, const char *devname,
 	 * set of options. We don't want to trust what the user
 	 * gave us, so just take whatever is in /etc/fstab.
 	 */
-	free(*options);
 	*options = strdup(mnt->mnt_opts);
 	return 0;
 }
@@ -1762,6 +1761,7 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 		   const char *orig_dev, char *orgoptions)
 {
 	int rc;
+	char *newopts = NULL;
 
 	rc = drop_capabilities(0);
 	if (rc)
@@ -1773,10 +1773,11 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 
 	if (getuid()) {
 		rc = check_fstab(thisprogram, mountpoint, orig_dev,
-				 &orgoptions);
+				 &newopts);
 		if (rc)
 			goto assemble_exit;
 
+		orgoptions = newopts;
 		/* enable any default user mount flags */
 		parsed_info->flags |= CIFS_SETUID_FLAGS;
 	}
@@ -1880,6 +1881,7 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 	}
 
 assemble_exit:
+	free(newopts);
 	return rc;
 }
 
