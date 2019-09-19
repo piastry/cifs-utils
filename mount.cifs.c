@@ -1895,7 +1895,7 @@ acquire_mountpoint(char **mountpointp)
 	int rc, dacrc;
 	uid_t realuid, oldfsuid;
 	gid_t oldfsgid;
-	char *mountpoint;
+	char *mountpoint = NULL;
 
 	/*
 	 * Acquire the necessary privileges to chdir to the mountpoint. If
@@ -1944,9 +1944,9 @@ restore_privs:
 		gid_t __attribute__((unused)) gignore = setfsgid(oldfsgid);
 	}
 
-	if (rc) {
-		free(*mountpointp);
-	}
+	if (rc)
+		free(mountpoint);
+
 	return rc;
 }
 
