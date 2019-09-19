@@ -54,7 +54,17 @@ struct smb_query_info {
 	/* char buffer[]; */
 } __packed;
 
+#define SMB3_SIGN_KEY_SIZE 16
+struct smb3_key_debug_info {
+	uint64_t Suid;
+	uint16_t cipher_type;
+	uint8_t auth_key[16]; /* SMB2_NTLMV2_SESSKEY_SIZE */
+	uint8_t	smb3encryptionkey[SMB3_SIGN_KEY_SIZE];
+	uint8_t	smb3decryptionkey[SMB3_SIGN_KEY_SIZE];
+} __attribute__((packed));
+
 #define CIFS_QUERY_INFO _IOWR(CIFS_IOCTL_MAGIC, 7, struct smb_query_info)
+#define CIFS_DUMP_KEY _IOWR(CIFS_IOCTL_MAGIC, 8, struct smb3_key_debug_info)
 #define INPUT_BUFFER_LENGTH 16384
 
 int verbose;
@@ -96,7 +106,9 @@ usage(char *name)
 		"  quota:\n"
 		"      Prints the quota for a cifs file.\n"
 		"  secdesc:\n"
-		"      Prints the security descriptor for a cifs file.\n",
+		"      Prints the security descriptor for a cifs file.\n"
+		"  keys:\n"
+		"      Prints the decryption information needed to view encrypted network traces.\n",
 		name);
 	exit(1);
 }
@@ -1071,6 +1083,43 @@ static void print_snapshots(struct smb_snapshot_array *psnap)
 	printf("\n");
 }
 
+static void
+dump_keys(int f)
+{
+	struct smb3_key_debug_info keys_info;
+	uint8_t *psess_id;
+
+	if (ioctl(f, CIFS_DUMP_KEY, &keys_info) < 0) {
+		fprintf(stderr, "Querying keys information failed with %s\n", strerror(errno));
+		exit(1);
+	}
+
+	if (keys_info.cipher_type == 1)
+		printf("CCM encryption");
+	else if (keys_info.cipher_type == 2)
+		printf("GCM encryption");
+	else if (keys_info.cipher_type == 0)
+		printf("SMB3.0 CCM encryption");
+	else
+		printf("unknown encryption type");
+
+	printf("\nSession Id:  ");
+	psess_id = (uint8_t *)&keys_info.Suid;
+	for (int i = 0; i < 8; i++)
+		printf(" %02x", psess_id[i]);
+
+	printf("\nSession Key: ");
+	for (int i = 0; i < 16; i++)
+		printf(" %02x", keys_info.auth_key[i]);
+	printf("\nServer Encryption Key: ");
+	for (int i = 0; i < SMB3_SIGN_KEY_SIZE; i++)
+		printf(" %02x", keys_info.smb3encryptionkey[i]);
+	printf("\nServer Decryption Key: ");
+	for (int i = 0; i < SMB3_SIGN_KEY_SIZE; i++)
+		printf(" %02x", keys_info.smb3decryptionkey[i]);
+	printf("\n");
+}
+
 #define CIFS_ENUMERATE_SNAPSHOTS _IOR(CIFS_IOCTL_MAGIC, 6, struct smb_snapshot_array)
 
 #define MIN_SNAPSHOT_ARRAY_SIZE 16 /* See MS-SMB2 section 3.3.5.15.1 */
@@ -1189,6 +1238,8 @@ int main(int argc, char *argv[])
 		quota(f);
 	else if (!strcmp(argv[optind], "secdesc"))
 		secdesc(f);
+	else if (!strcmp(argv[optind], "keys"))
+		dump_keys(f);
 	else {
 		fprintf(stderr, "Unknown command %s\n", argv[optind]);
 		exit(1);
