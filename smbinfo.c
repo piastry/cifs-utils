@@ -101,6 +101,8 @@ usage(char *name)
 		"      Prints the objectid of the file and GUID of the underlying volume.\n"
 		"  getcompression:\n"
 		"      Prints the compression setting for the file.\n"
+		"  setcompression <no|default|lznt1>:\n"
+		"      Sets the compression level for the file.\n"
 		"  list-snapshots:\n"
 		"      List the previous versions of the volume that backs this file.\n"
 		"  quota:\n"
@@ -306,6 +308,30 @@ getcompression(int f)
 		exit(1);
 	}
 	print_getcompression((uint8_t *)(&qi[1]));
+
+	free(qi);
+}
+
+static void
+setcompression(int f, uint16_t level)
+{
+	struct smb_query_info *qi;
+
+	qi = malloc(sizeof(struct smb_query_info) + 2);
+	memset(qi, 0, sizeof(qi) + 2);
+	qi->info_type = 0x9c040;
+	qi->file_info_class = 0;
+	qi->additional_information = 0;
+	qi->output_buffer_length = 2;
+	qi->flags = PASSTHRU_FSCTL;
+
+	level = htole16(level);
+	memcpy(&qi[1], &level, 2);
+
+	if (ioctl(f, CIFS_QUERY_INFO, qi) < 0) {
+		fprintf(stderr, "ioctl failed with %s\n", strerror(errno));
+		exit(1);
+	}
 
 	free(qi);
 }
@@ -1175,17 +1201,35 @@ list_snapshots(int f)
 	free(buf);
 }
 
+static int
+parse_compression(const char *arg)
+{
+	if (!strcmp(arg, "no"))
+		return 0;
+	else if (!strcmp(arg, "default"))
+		return 1;
+	else if (!strcmp(arg, "lznt1"))
+		return 2;
+
+	fprintf(stderr, "compression must be no|default|lznt1\n");
+	exit(10);
+}
+
 int main(int argc, char *argv[])
 {
 	int c;
 	int f;
+	int compression = 1;
 
 	if (argc < 2) {
 		short_usage(argv[0]);
 	}
 
-	while ((c = getopt_long(argc, argv, "vVh", NULL, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "c:vVh", NULL, NULL)) != -1) {
 		switch (c) {
+		case 'c':
+			compression = parse_compression(optarg);
+			break;
 		case 'v':
 			printf("smbinfo version %s\n", VERSION);
 			return 0;
@@ -1232,6 +1276,8 @@ int main(int argc, char *argv[])
 		fsctlgetobjid(f);
 	else if (!strcmp(argv[optind], "getcompression"))
 		getcompression(f);
+	else if (!strcmp(argv[optind], "setcompression"))
+		setcompression(f, compression);
 	else if (!strcmp(argv[optind], "list-snapshots"))
 		list_snapshots(f);
 	else if (!strcmp(argv[optind], "quota"))

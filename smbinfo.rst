@@ -69,6 +69,8 @@ COMMAND
 
 `getcompression`: Prints the compression setting for the file.
 
+`setcompression -c <no|default|lznt1>`: Sets the compression setting for the file.
+
 `list-snapshots`: Lists the previous versions of the volume that backs this file
 
 `quota`: Print the quota for the volume in the form
