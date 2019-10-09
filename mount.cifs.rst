@@ -586,12 +586,6 @@ noposixpaths
 posixpaths
   Inverse of ``noposixpaths`` .
 
-prefixpath=arg
-  It's possible to mount a subdirectory of a share. The preferred way to
-  do this is to append the path to the UNC when mounting. However, it's
-  also possible to do the same by setting this option and providing the
-  path there.
-
 vers=arg
   SMB protocol version. Allowed values are:
 
