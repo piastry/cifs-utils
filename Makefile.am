@@ -81,8 +81,7 @@ setcifsacl.rst: setcifsacl.rst.in
 endif
 
 if CONFIG_SMBINFO
-bin_PROGRAMS += smbinfo
-smbinfo_SOURCES = smbinfo.c
+bin_SCRIPTS = smbinfo
 rst_man_pages += smbinfo.1
 endif
 
