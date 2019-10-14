@@ -90,6 +90,10 @@ COMMAND
 - File types
 - File flags
 
+`keys`: Dump session id, encryption keys and decryption keys so that
+the SMB3 traffic of this mount can be decryped e.g. via wireshark
+(requires root).
+
 *****
 NOTES
 *****
