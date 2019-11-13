@@ -111,3 +111,7 @@ CLEANFILES += $(rst_man_pages)
 endif
 
 SUBDIRS = contrib
+
+install-exec-hook:
+	(cd $(ROOTSBINDIR) && ln -sf mount.cifs mount.smb3)
+	(cd $(man8dir) && ln -sf mount.cifs.8 mount.smb3.8)

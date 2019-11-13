@@ -1,6 +1,6 @@
-==========
-mount.cifs
-==========
+=====================
+mount.cifs mount.smb3
+=====================
 
 --------------------------------------------------
 mount using the Common Internet File System (CIFS)
@@ -22,6 +22,12 @@ the cifs filesystem. The SMB3 protocol is the successor to the CIFS (SMB)
 protocol and is supported by most Windows servers, Azure (cloud storage),
 Macs and many other commercial servers and Network Attached Storage
 appliances as well as by the popular Open Source server Samba.
+
+``mount.smb3`` mounts only SMB3 filesystem. It is usually invoked
+indirectly by the mount(8) command when using the "-t smb3" option.
+The ``smb3`` filesystem type was added in kernel-4.18 and above.
+It works in a similar fashion as mount.cifs except it passes filesystem
+type as smb3.
 
 The mount.cifs utility attaches the UNC name (exported network
 resource) specified as service (using ``//server/share`` syntax, where

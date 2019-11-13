@@ -192,7 +192,7 @@ struct parsed_mount_info {
 };
 
 static const char *thisprogram;
-static const char *cifs_fstype = "cifs";
+static const char *cifs_fstype;
 
 static int parse_unc(const char *unc_name, struct parsed_mount_info *parsed_info);
 
@@ -1985,6 +1985,12 @@ int main(int argc, char **argv)
 	thisprogram = basename(argv[0]);
 	if (thisprogram == NULL)
 		thisprogram = "mount.cifs";
+
+	if(strcmp(thisprogram, "mount.cifs") == 0)
+               cifs_fstype = "cifs";
+
+        if(strcmp(thisprogram, "mount.smb3") == 0)
+              cifs_fstype = "smb3";
 
 	/* allocate parsed_info as shared anonymous memory range */
 	parsed_info = mmap((void *)0, sizeof(*parsed_info), PROT_READ | PROT_WRITE,
