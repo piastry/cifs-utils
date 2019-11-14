@@ -194,7 +194,7 @@ struct parsed_mount_info {
 static const char *thisprogram;
 static const char *cifs_fstype;
 
-static int parse_unc(const char *unc_name, struct parsed_mount_info *parsed_info);
+static int parse_unc(const char *unc_name, struct parsed_mount_info *parsed_info, const char *progname);
 
 static int check_setuid(void)
 {
@@ -206,7 +206,7 @@ static int check_setuid(void)
 
 #if CIFS_DISABLE_SETUID_CAPABILITY
 	if (getuid() && !geteuid()) {
-		printf("This mount.cifs program has been built with the "
+		printf("This program has been built with the "
 		       "ability to run as a setuid root program disabled.\n");
 		return EX_USAGE;
 	}
@@ -301,7 +301,7 @@ static int mount_usage(FILE * stream)
 		"\n\tbsize=<size>");
 	fprintf(stream,
 		"\n\nOptions are described in more detail in the manual page");
-	fprintf(stream, "\n\tman 8 mount.cifs\n");
+	fprintf(stream, "\n\tman 8 %s\n", thisprogram);
 	fprintf(stream, "\nTo display the version number of the mount helper:");
 	fprintf(stream, "\n\t%s -V\n", thisprogram);
 
@@ -636,7 +636,7 @@ return_i:
 
 static int
 get_password_from_file(int file_descript, char *filename,
-		       struct parsed_mount_info *parsed_info)
+		       struct parsed_mount_info *parsed_info, const char *program)
 {
 	int rc = 0;
 	char buf[sizeof(parsed_info->password) + 1];
@@ -649,8 +649,8 @@ get_password_from_file(int file_descript, char *filename,
 		rc = access(filename, R_OK);
 		if (rc) {
 			fprintf(stderr,
-				"mount.cifs failed: access check of %s failed: %s\n",
-				filename, strerror(errno));
+				"%s failed: access check of %s failed: %s\n",
+				program, filename, strerror(errno));
 			toggle_dac_capability(0, 0);
 			return EX_SYSERR;
 		}
@@ -658,8 +658,8 @@ get_password_from_file(int file_descript, char *filename,
 		file_descript = open(filename, O_RDONLY);
 		if (file_descript < 0) {
 			fprintf(stderr,
-				"mount.cifs failed. %s attempting to open password file %s\n",
-				strerror(errno), filename);
+				"%s failed. %s attempting to open password file %s\n",
+				program, strerror(errno), filename);
 			toggle_dac_capability(0, 0);
 			return EX_SYSERR;
 		}
@@ -675,8 +675,8 @@ get_password_from_file(int file_descript, char *filename,
 	rc = read(file_descript, buf, sizeof(buf) - 1);
 	if (rc < 0) {
 		fprintf(stderr,
-			"mount.cifs failed. Error %s reading password file\n",
-			strerror(errno));
+			"%s failed. Error %s reading password file\n",
+			program, strerror(errno));
 		rc = EX_SYSERR;
 		goto get_pw_exit;
 	}
@@ -923,7 +923,7 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 					"invalid path to network resource\n");
 				return EX_USAGE;
 			}
-			rc = parse_unc(value, parsed_info);
+			rc = parse_unc(value, parsed_info, thisprogram);
 			if (rc)
 				return rc;
 			break;
@@ -1280,7 +1280,7 @@ nocopy:
 	return 0;
 }
 
-static int parse_unc(const char *unc_name, struct parsed_mount_info *parsed_info)
+static int parse_unc(const char *unc_name, struct parsed_mount_info *parsed_info, const char *progname)
 {
 	int length = strnlen(unc_name, MAX_UNC_LEN);
 	const char *host, *share, *prepath;
@@ -1305,26 +1305,26 @@ static int parse_unc(const char *unc_name, struct parsed_mount_info *parsed_info
 	}
 
 	if (strncmp(unc_name, "//", 2) && strncmp(unc_name, "\\\\", 2)) {
-		fprintf(stderr, "mount.cifs: bad UNC (%s)\n", unc_name);
+		fprintf(stderr, "%s: bad UNC (%s)\n", progname, unc_name);
 		return EX_USAGE;
 	}
 
 	host = unc_name + 2;
 	hostlen = strcspn(host, "/\\");
 	if (!hostlen) {
-		fprintf(stderr, "mount.cifs: bad UNC (%s)\n", unc_name);
+		fprintf(stderr, "%s: bad UNC (%s)\n", progname, unc_name);
 		return EX_USAGE;
 	}
 	share = host + hostlen + 1;
 
 	if (hostlen + 1 > sizeof(parsed_info->host)) {
-		fprintf(stderr, "mount.cifs: host portion of UNC too long\n");
+		fprintf(stderr, "%s: host portion of UNC too long\n", progname);
 		return EX_USAGE;
 	}
 
 	sharelen = strcspn(share, "/\\");
 	if (sharelen + 1 > sizeof(parsed_info->share)) {
-		fprintf(stderr, "mount.cifs: share portion of UNC too long\n");
+		fprintf(stderr, "%s: share portion of UNC too long\n", progname);
 		return EX_USAGE;
 	}
 
@@ -1335,7 +1335,7 @@ static int parse_unc(const char *unc_name, struct parsed_mount_info *parsed_info
 	prepathlen = strlen(prepath);
 
 	if (prepathlen + 1 > sizeof(parsed_info->prefix)) {
-		fprintf(stderr, "mount.cifs: UNC prefixpath too long\n");
+		fprintf(stderr, "%s: UNC prefixpath too long\n", progname);
 		return EX_USAGE;
 	}
 
@@ -1347,7 +1347,7 @@ static int parse_unc(const char *unc_name, struct parsed_mount_info *parsed_info
 	return 0;
 }
 
-static int get_pw_from_env(struct parsed_mount_info *parsed_info)
+static int get_pw_from_env(struct parsed_mount_info *parsed_info, const char *program)
 {
 	int rc = 0;
 
@@ -1355,10 +1355,10 @@ static int get_pw_from_env(struct parsed_mount_info *parsed_info)
 		rc = set_password(parsed_info, getenv("PASSWD"));
 	else if (getenv("PASSWD_FD"))
 		rc = get_password_from_file(atoi(getenv("PASSWD_FD")), NULL,
-					    parsed_info);
+					    parsed_info, program);
 	else if (getenv("PASSWD_FILE"))
 		rc = get_password_from_file(0, getenv("PASSWD_FILE"),
-					    parsed_info);
+					    parsed_info, program);
 
 	return rc;
 }
@@ -1408,9 +1408,9 @@ static int uppercase_string(char *string)
 	return 1;
 }
 
-static void print_cifs_mount_version(void)
+static void print_cifs_mount_version(const char *progname)
 {
-	printf("mount.cifs version: %s\n", VERSION);
+	printf("%s version: %s\n", progname, VERSION);
 }
 
 /*
@@ -1782,7 +1782,7 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 		parsed_info->flags |= CIFS_SETUID_FLAGS;
 	}
 
-	rc = get_pw_from_env(parsed_info);
+	rc = get_pw_from_env(parsed_info, thisprogram);
 	if (rc)
 		goto assemble_exit;
 
@@ -1802,7 +1802,7 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 
 	parsed_info->flags &= ~(MS_USERS | MS_USER);
 
-	rc = parse_unc(orig_dev, parsed_info);
+	rc = parse_unc(orig_dev, parsed_info, thisprogram);
 	if (rc)
 		goto assemble_exit;
 
@@ -1987,10 +1987,10 @@ int main(int argc, char **argv)
 		thisprogram = "mount.cifs";
 
 	if(strcmp(thisprogram, "mount.cifs") == 0)
-               cifs_fstype = "cifs";
+		cifs_fstype = "cifs";
 
-        if(strcmp(thisprogram, "mount.smb3") == 0)
-              cifs_fstype = "smb3";
+	if(strcmp(thisprogram, "mount.smb3") == 0)
+		cifs_fstype = "smb3";
 
 	/* allocate parsed_info as shared anonymous memory range */
 	parsed_info = mmap((void *)0, sizeof(*parsed_info), PROT_READ | PROT_WRITE,
@@ -2027,7 +2027,7 @@ int main(int argc, char **argv)
 			++parsed_info->verboseflag;
 			break;
 		case 'V':
-			print_cifs_mount_version();
+			print_cifs_mount_version(thisprogram);
 			exit(0);
 		case 'w':
 			parsed_info->flags &= ~MS_RDONLY;
