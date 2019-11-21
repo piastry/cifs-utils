@@ -1,5 +1,5 @@
 ============
-smb2quota
+smb2-quota
 ============
 
 -----------------------------------------------------------------------------------------------------
@@ -11,7 +11,7 @@ Userspace helper to display quota information for the Linux SMB client file syst
 SYNOPSIS
 ********
 
-  smb2quota [-h] {options} {file system object}
+  smb2-quota [-h] {options} {file system object}
 
 ***********
 DESCRIPTION
@@ -19,7 +19,7 @@ DESCRIPTION
 
 This tool is part of the cifs-utils suite.
 
-`smb2quota` is a userspace helper program for the Linux SMB
+`smb2-quota` is a userspace helper program for the Linux SMB
 client file system (CIFS).
 
 This tool works by making an CIFS_QUERY_INFO IOCTL call to the Linux
@@ -49,7 +49,7 @@ SID,Amount Used,Quota Limit,Warning Level
 NOTES
 *****
 
-Kernel support for smb2quota requires the CIFS_QUERY_INFO
+Kernel support for smb2-quota requires the CIFS_QUERY_INFO
 IOCTL which was initially introduced in the 4.20 kernel and is only
 implemented for mount points using SMB2 or above (see mount.cifs(8)
 `vers` option).

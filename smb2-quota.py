@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 #
-# smb2quota is a cmdline tool to display quota information for the
+# smb2-quota is a cmdline tool to display quota information for the
 # Linux SMB client file system (CIFS)
 #
 # Copyright (C) Ronnie Sahlberg (lsahlberg@redhat.com) 2019
@@ -34,7 +34,7 @@ ENDC = '\033[m'   # Rest to defaults
 
 def usage():
     print("Usage: %s [-h] <options> <filename>" % sys.argv[0])
-    print("Try 'smb2quota -h' for more information")
+    print("Try 'smb2-quota -h' for more information")
     sys.exit()
 
 
@@ -120,18 +120,13 @@ class QuotaEntry:
 class Quota:
     def __init__(self, buf, flag):
         self.quota = []
-        s = struct.unpack_from('<I', buf, 0)[0]
-        while s:
-            qe = QuotaEntry(buf[0:s], flag)
+        while buf:
+            qe = QuotaEntry(buf, flag)
             self.quota.append(qe)
-            buf = buf[s:]
-            a = s
             s = struct.unpack_from('<I', buf, 0)[0]
             if s == 0:
-                s = a   # Use the last value of s and process it.
-                qe = QuotaEntry(buf[0:s], flag)
-                self.quota.append(qe)
                 break
+            buf = buf[s:]
 
     def __str__(self):
         s = ''
@@ -158,7 +153,7 @@ def parser_check(path, flag):
         fcntl.ioctl(f, CIFS_QUERY_INFO, buf, 1)
         os.close(f)
         if flag == 0:
-            print(BBOLD + " %-7s | %-7s | %-7s | %-7s | %-12s | %s " + ENDC) % (titleused, titlelim, titlethr, titlepercent, titlestatus, titlesid)
+            print((BBOLD + " %-7s | %-7s | %-7s | %-7s | %-12s | %s " + ENDC) % (titleused, titlelim, titlethr, titlepercent, titlestatus, titlesid))
         q = Quota(buf[24:24 + struct.unpack_from('<I', buf, 16)[0]], flag)
         print(q)
     except IOError as reason:
@@ -171,7 +166,7 @@ def main():
     if len(sys.argv) < 2:
         usage()
 
-    parser = argparse.ArgumentParser(description="Please specify an action to perform.", prog="smb2quota")
+    parser = argparse.ArgumentParser(description="Please specify an action to perform.", prog="smb2-quota")
     parser.add_argument("-t", "--tabular", action="store_true", help="print quota information in tabular format")
     parser.add_argument("-c", "--csv",  action="store_true", help="print quota information in csv format")
     parser.add_argument("-l", "--list", action="store_true", help="print quota information in list format")
