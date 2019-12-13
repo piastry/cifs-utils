@@ -25,6 +25,7 @@ RST2MAN = $(have_rst2man) --syntax-highlight=none $< $@
 
 CLEANFILES =
 bin_PROGRAMS =
+bin_SCRIPTS =
 sbin_PROGRAMS =
 
 if CONFIG_CIFSUPCALL
@@ -83,6 +84,11 @@ if CONFIG_SMBINFO
 bin_PROGRAMS += smbinfo
 smbinfo_SOURCES = smbinfo.c
 rst_man_pages += smbinfo.1
+endif
+
+if CONFIG_PYTHON_TOOLS
+bin_SCRIPTS += smb2-quota
+rst_man_pages += smb2-quota.1
 endif
 
 if CONFIG_PLUGIN
