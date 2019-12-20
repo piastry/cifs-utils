@@ -443,7 +443,7 @@ def cmd_filefsfullsizeinfo(args):
     qi = QueryInfoStruct(info_type=0x2, file_info_class=7, input_buffer_length=32)
     try:
         fd = os.open(args.file, os.O_RDONLY)
-        total, caller_avail, actual_avail, sec_per_unit, byte_per_sec = qi.ioctl(fd, CIFS_QUERY_INFO, '<QQQII')
+        total, caller_avail, actual_avail, sec_per_unit, byte_per_sec = qi.ioctl(fd, '<QQQII')
     except Exception as e:
         print("syscall failed: %s"%e)
         return False
@@ -540,7 +540,7 @@ def cmd_getcompression(args):
     qi = QueryInfoStruct(info_type=0x9003c, flags=PASSTHRU_FSCTL, input_buffer_length=2)
     try:
         fd = os.open(args.file, os.O_RDONLY)
-        ctype = qi.ioctl(fd, CIFS_QUERY_INFO, '<H')[0]
+        ctype = qi.ioctl(fd, '<H')[0]
     except Exception as e:
         print("syscall failed: %s"%e)
         return False
