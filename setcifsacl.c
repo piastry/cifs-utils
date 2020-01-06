@@ -114,12 +114,14 @@ copy_sec_desc(const struct cifs_ntsd *pntsd, struct cifs_ntsd *pnntsd,
 	if (dacloffset <= osidsoffset) {
 		/* owners placed at end of ACL */
 		nowner_sid_ptr = (struct cifs_sid *)((char *)pnntsd + dacloffset + size);
-		pnntsd->osidoffset = dacloffset + size;
+		osidsoffset = dacloffset + size;
+		pnntsd->osidoffset = htole32(osidsoffset);
 		size = copy_cifs_sid(nowner_sid_ptr, owner_sid_ptr);
 		bufsize += size;
 		/* put group SID after owner SID */
 		ngroup_sid_ptr = (struct cifs_sid *)((char *)nowner_sid_ptr + size);
-		pnntsd->gsidoffset = pnntsd->osidoffset + size;
+		gsidsoffset = osidsoffset + size;
+		pnntsd->gsidoffset = htole32(gsidsoffset);
 	} else {
 		/*
 		 * Most servers put the owner information at the beginning,
