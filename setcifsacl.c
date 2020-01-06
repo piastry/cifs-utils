@@ -44,7 +44,9 @@ enum setcifsacl_actions {
 	ActDelete,
 	ActModify,
 	ActAdd,
-	ActSet
+	ActSetAcl,
+	ActSetOwner,
+	ActSetGroup
 };
 
 static void *plugin_handle;
@@ -136,6 +138,90 @@ copy_sec_desc(const struct cifs_ntsd *pntsd, struct cifs_ntsd *pnntsd,
 	/* copy group sid */
 	size = copy_cifs_sid(ngroup_sid_ptr, group_sid_ptr);
 	bufsize += size;
+
+	return bufsize;
+}
+
+/*
+ * This function (and the one above) does not need to set the SACL-related
+ * fields, and this works fine because on the SMB protocol level, setting owner
+ * info, DACL, and SACL requires one to use separate flags that control which
+ * part of the descriptor is begin looked at on the server side
+ */
+static ssize_t
+copy_sec_desc_with_sid(const struct cifs_ntsd *pntsd, struct cifs_ntsd *pnntsd,
+		struct cifs_sid *sid, int maction)
+{
+	int size, daclsize;
+	int osidoffset, gsidoffset, dacloffset;
+	int nosidoffset, ngsidoffset, ndacloffset, nsidssize;
+	ssize_t bufsize;
+	struct cifs_sid *owner_sid_ptr, *group_sid_ptr;
+	struct cifs_sid *nowner_sid_ptr, *ngroup_sid_ptr;
+	struct cifs_ctrl_acl *dacl_ptr, *ndacl_ptr;
+
+	/* copy security descriptor control portion */
+	osidoffset = le32toh(pntsd->osidoffset);
+	gsidoffset = le32toh(pntsd->gsidoffset);
+	dacloffset = le32toh(pntsd->dacloffset);
+	/*
+	 * the size of the owner or group sid might be different from the old
+	 * one, so the group sid offest might change, and if the owner is
+	 * positioned before the DACL, the dacl offset might change as well;
+	 * note however, that the owner sid offset does not change
+	 */
+	nosidoffset = osidoffset;
+	size = sizeof(struct cifs_ntsd);
+	pnntsd->revision = pntsd->revision;
+	pnntsd->type = pntsd->type;
+	pnntsd->osidoffset = pntsd->osidoffset;
+	bufsize = size;
+
+	/* set the pointers for source sids */
+	if (maction == ActSetOwner) {
+		owner_sid_ptr = sid;
+		group_sid_ptr = (struct cifs_sid *)((char *)pntsd + gsidoffset);
+	}
+	if (maction == ActSetGroup) {
+		owner_sid_ptr = (struct cifs_sid *)((char *)pntsd + osidoffset);
+		group_sid_ptr = sid;
+	}
+
+	dacl_ptr = (struct cifs_ctrl_acl *)((char *)pntsd + dacloffset);
+	daclsize = le16toh(dacl_ptr->size) + sizeof(struct cifs_ctrl_acl);
+
+	/* copy owner sid */
+	nowner_sid_ptr = (struct cifs_sid *)((char *)pnntsd + nosidoffset);
+	size = copy_cifs_sid(nowner_sid_ptr, owner_sid_ptr);
+	bufsize += size;
+	nsidssize = size;
+
+	/* copy group sid */
+	ngsidoffset = nosidoffset + size;
+	ngroup_sid_ptr = (struct cifs_sid *)((char *)pnntsd + ngsidoffset);
+	pnntsd->gsidoffset = htole32(ngsidoffset);
+	size = copy_cifs_sid(ngroup_sid_ptr, group_sid_ptr);
+	bufsize += size;
+	nsidssize += size;
+
+	/* position the dacl control info as in the fetched descriptor */
+	if (dacloffset <= osidoffset)
+		ndacloffset = dacloffset;
+	else
+		ndacloffset = nosidoffset + nsidssize;
+	ndacl_ptr = (struct cifs_ctrl_acl *)((char *)pnntsd + ndacloffset);
+	pnntsd->dacloffset = htole32(ndacloffset);
+
+	/* the DACL control fields do not change */
+	ndacl_ptr->revision = dacl_ptr->revision;
+	ndacl_ptr->size = dacl_ptr->size;
+	ndacl_ptr->num_aces = dacl_ptr->num_aces;
+
+	/*
+	 * add DACL size (control portion and the array of aces) to the
+	 * buffer size
+	 */
+	bufsize += daclsize;
 
 	return bufsize;
 }
@@ -788,7 +874,7 @@ setacl_action(struct cifs_ntsd *pntsd, struct cifs_ntsd **npntsd,
 		rc = ace_add(pntsd, npntsd, bufsize, facesptr,
 				numfaces, cacesptr, numcaces);
 		break;
-	case ActSet:
+	case ActSetAcl:
 		rc = ace_set(pntsd, npntsd, bufsize, cacesptr, numcaces);
 		break;
 	default:
@@ -803,9 +889,10 @@ static void
 setcifsacl_usage(const char *prog)
 {
 	fprintf(stderr,
-	"%s: Alter CIFS/NTFS ACL in a security descriptor of a file object\n",
+	"%s: Alter CIFS/NTFS ACL or owner/group in a security descriptor of a file object\n",
 		prog);
-	fprintf(stderr, "Usage: %s option <list_of_ACEs> <file_name>\n", prog);
+	fprintf(stderr, "Usage: %s option [<list_of_ACEs>|<SID>] <file_name>\n",
+		prog);
 	fprintf(stderr, "Valid options:\n");
 	fprintf(stderr, "\t-v	Version of the program\n");
 	fprintf(stderr, "\n\t-a	Add ACE(s), separated by a comma, to an ACL\n");
@@ -825,21 +912,32 @@ setcifsacl_usage(const char *prog)
 	"\n\t-S	Replace existing ACL with ACE(s), separated by a comma\n");
 	fprintf(stderr,
 	"\tsetcifsacl -S \"ACL:Administrator:ALLOWED/0x0/D\" <file_name>\n");
+	fprintf(stderr,
+	"\n\t-o	Set owner using specified SID (name or raw format)\n");
+	fprintf(stderr,
+	"\tsetcifsacl -o \"Administrator\" <file_name>\n");
+	fprintf(stderr,
+	"\n\t-g	Set group using specified SID (name or raw format)\n");
+	fprintf(stderr,
+	"\tsetcifsacl -g \"Administrators\" <file_name>\n");
 	fprintf(stderr, "\nRefer to setcifsacl(1) manpage for details\n");
 }
 
 int
 main(const int argc, char *const argv[])
 {
-	int i, rc, c, numcaces, numfaces;
+	int i, rc, c, numcaces = 0, numfaces = 0;
 	enum setcifsacl_actions maction = ActUnknown;
 	ssize_t attrlen, bufsize = BUFSIZE;
-	char *ace_list, *filename, *attrval, **arrptr = NULL;
+	char *ace_list = NULL, *filename = NULL, *attrval = NULL,
+		**arrptr = NULL, *sid_str = NULL;
 	struct cifs_ctrl_acl *daclptr = NULL;
 	struct cifs_ace **cacesptr = NULL, **facesptr = NULL;
 	struct cifs_ntsd *ntsdptr = NULL;
+	struct cifs_sid sid;
+	char *attrname = ATTRNAME_ACL;
 
-	c = getopt(argc, argv, "hvD:M:a:S:");
+	c = getopt(argc, argv, "hvD:M:a:S:o:g:");
 	switch (c) {
 	case 'D':
 		maction = ActDelete;
@@ -854,8 +952,18 @@ main(const int argc, char *const argv[])
 		ace_list = optarg;
 		break;
 	case 'S':
-		maction = ActSet;
+		maction = ActSetAcl;
 		ace_list = optarg;
+		break;
+	case 'o':
+		maction = ActSetOwner;
+		sid_str = optarg;
+		attrname = ATTRNAME_NTSD;
+		break;
+	case 'g':
+		maction = ActSetGroup;
+		sid_str = optarg;
+		attrname = ATTRNAME_NTSD;
 		break;
 	case 'h':
 		setcifsacl_usage(basename(argv[0]));
@@ -875,8 +983,13 @@ main(const int argc, char *const argv[])
 	}
 	filename = argv[3];
 
-	if (!ace_list) {
+	if (!ace_list && maction != ActSetOwner && maction != ActSetGroup) {
 		printf("%s: No valid ACEs specified\n", __func__);
+		return -1;
+	}
+
+	if (!sid_str && (maction == ActSetOwner || maction == ActSetGroup)) {
+		printf("%s: No valid SIDs specified\n", __func__);
 		return -1;
 	}
 
@@ -889,16 +1002,24 @@ main(const int argc, char *const argv[])
 		plugin_loaded = true;
 	}
 
-	numcaces = get_numcaces(ace_list);
+	if (maction == ActSetOwner || maction == ActSetGroup) {
+		/* parse the sid */
+		if (setcifsacl_str_to_sid(sid_str, &sid)) {
+			printf("%s: failed to parce \'%s\' as SID\n", __func__,
+				sid_str);
+			goto setcifsacl_numcaces_ret;
+		}
+	} else {
+		numcaces = get_numcaces(ace_list);
 
-	arrptr = parse_cmdline_aces(ace_list, numcaces);
-	if (!arrptr)
-		goto setcifsacl_numcaces_ret;
+		arrptr = parse_cmdline_aces(ace_list, numcaces);
+		if (!arrptr)
+			goto setcifsacl_numcaces_ret;
 
-	cacesptr = build_cmdline_aces(arrptr, numcaces);
-	if (!cacesptr)
-		goto setcifsacl_cmdlineparse_ret;
-
+		cacesptr = build_cmdline_aces(arrptr, numcaces);
+		if (!cacesptr)
+			goto setcifsacl_cmdlineparse_ret;
+	}
 cifsacl:
 	if (bufsize >= XATTR_SIZE_MAX) {
 		printf("%s: Buffer size %zd exceeds max size of %d\n",
@@ -912,7 +1033,7 @@ cifsacl:
 		goto setcifsacl_cmdlineverify_ret;
 	}
 
-	attrlen = getxattr(filename, ATTRNAME, attrval, bufsize);
+	attrlen = getxattr(filename, attrname, attrval, bufsize);
 	if (attrlen == -1) {
 		if (errno == ERANGE) {
 			free(attrval);
@@ -924,26 +1045,64 @@ cifsacl:
 		}
 	}
 
-	numfaces = get_numfaces((struct cifs_ntsd *)attrval, attrlen, &daclptr);
-	if (!numfaces && maction != ActAdd) { /* if we are not adding aces */
-		printf("%s: Empty DACL\n", __func__);
-		goto setcifsacl_facenum_ret;
+	if (maction == ActSetOwner || maction == ActSetGroup) {
+		struct cifs_ntsd *pfntsd = (struct cifs_ntsd *)attrval;
+		int dacloffset = le32toh(pfntsd->dacloffset);
+		struct cifs_ctrl_acl *daclinfo =
+				(struct cifs_ctrl_acl *)(attrval + dacloffset);
+		int numaces = le16toh(daclinfo->num_aces);
+		int acessize = le32toh(daclinfo->size);
+		size_t faceoffset, naceoffset;
+		char *faceptr, *naceptr;
+
+		/*
+		 * this allocates large enough buffer for max sid size and the
+		 * dacl info from the fetched security descriptor
+		 */
+		rc = alloc_sec_desc(pfntsd, &ntsdptr, numaces, &faceoffset);
+		if (rc)
+			goto setcifsacl_numcaces_ret;
+
+		/*
+		 * copy the control structures from the fetched descriptor, the
+		 * sid specified by the user, and adjust the offsets/move dacl
+		 * control structure if needed
+		 */
+		bufsize = copy_sec_desc_with_sid(pfntsd, ntsdptr, &sid,
+				maction);
+
+		/* copy aces verbatim as they have not changed */
+		faceptr = attrval + faceoffset;
+		naceoffset = le32toh(ntsdptr->dacloffset) +
+				sizeof(struct cifs_ctrl_acl);
+		naceptr = (char *)ntsdptr + naceoffset;
+		memcpy(naceptr, faceptr, acessize);
+	} else {
+		bufsize = 0;
+
+		numfaces = get_numfaces((struct cifs_ntsd *)attrval, attrlen,
+				&daclptr);
+		if (!numfaces && maction != ActAdd) {
+			/* if we are not adding aces */
+			printf("%s: Empty DACL\n", __func__);
+			goto setcifsacl_facenum_ret;
+		}
+
+		facesptr = build_fetched_aces((char *)daclptr, numfaces);
+		if (!facesptr)
+			goto setcifsacl_facenum_ret;
+
+		rc = setacl_action((struct cifs_ntsd *)attrval, &ntsdptr,
+				&bufsize, facesptr, numfaces, cacesptr,
+				numcaces, maction);
+		if (rc)
+			goto setcifsacl_action_ret;
 	}
 
-	facesptr = build_fetched_aces((char *)daclptr, numfaces);
-	if (!facesptr)
-		goto setcifsacl_facenum_ret;
-
-	bufsize = 0;
-	rc = setacl_action((struct cifs_ntsd *)attrval, &ntsdptr, &bufsize,
-		facesptr, numfaces, cacesptr, numcaces, maction);
-	if (rc)
-		goto setcifsacl_action_ret;
-
-	attrlen = setxattr(filename, ATTRNAME, ntsdptr, bufsize, 0);
+	attrlen = setxattr(filename, attrname, ntsdptr, bufsize, 0);
 	if (attrlen == -1) {
 		printf("%s: setxattr error: %s\n", __func__, strerror(errno));
-		goto setcifsacl_facenum_ret;
+		goto setcifsacl_action_ret;
 	}
 
 	if (plugin_loaded)
@@ -951,25 +1110,33 @@ cifsacl:
 	return 0;
 
 setcifsacl_action_ret:
-	free(ntsdptr);
+	if (ntsdptr)
+		free(ntsdptr);
 
 setcifsacl_facenum_ret:
-	for (i = 0; i < numfaces; ++i)
-		free(facesptr[i]);
-	free(facesptr);
+	if (facesptr) {
+		for (i = 0; i < numfaces; ++i)
+			free(facesptr[i]);
+		free(facesptr);
+	}
 
 setcifsacl_getx_ret:
-	free(attrval);
+	if (attrval)
+		free(attrval);
 
 setcifsacl_cmdlineverify_ret:
-	for (i = 0; i < numcaces; ++i)
-		free(cacesptr[i]);
-	free(cacesptr);
+	if (cacesptr) {
+		for (i = 0; i < numcaces; ++i)
+			free(cacesptr[i]);
+		free(cacesptr);
+	}
 
 setcifsacl_cmdlineparse_ret:
-	free(arrptr);
+	if (arrptr)
+		free(arrptr);
 
 setcifsacl_numcaces_ret:
-	exit_plugin(plugin_handle);
+	if (plugin_loaded)
+		exit_plugin(plugin_handle);
 	return -1;
 }

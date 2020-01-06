@@ -2,16 +2,16 @@
 setcifsacl
 ==========
 
-------------------------------------------------------------------------------------------------
-Userspace helper to alter an ACL in a security descriptor for Common Internet File System (CIFS)
-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------
+Userspace helper to alter an ACL or owner/group SID in a security descriptor for Common Internet File System (CIFS)
+-------------------------------------------------------------------------------------------------------------------
 :Manual section: 1
 
 ********
 SYNOPSIS
 ********
 
-  setcifsacl [-v|-a|-D|-M|-S] "{one or more ACEs}" {file system object}
+  setcifsacl [-v|-a|-D|-M|-S|-o|-g] "{one or more ACEs or a SID}" {file system object}
 
 ***********
 DESCRIPTION
@@ -20,7 +20,7 @@ DESCRIPTION
 This tool is part of the cifs-utils suite.
 
 ``setcifsacl`` is a userspace helper program for the Linux CIFS client
-file system. It is intended to alter an ACL of a security descriptor
+file system. It is intended to alter an ACL or set owner/group SID of a security descriptor
 for a file system object. Whether a security descriptor to be set is
 applied or not is determined by the CIFS/SMB server.
 
@@ -55,6 +55,13 @@ OPTIONS
   Set an ACL of security descriptor with the list of ACEs Existing ACL
   is replaced entirely with the specified ACEs.
 
+-o
+  Set owner SID to one specified as a command line argument.
+
+-g
+  Set group SID to one specified as a command line argument.
+
+  The owner/group SID can be specified as a name or a raw SID value.
   Every ACE entry starts with "ACL:" One or more ACEs are specified
   within double quotes.  Multiple ACEs are separated by a comma.
 
@@ -92,6 +99,16 @@ Set an ACL
 ==========
 
   setcifsacl -S "ACL:CIFSTESTDOM\Administrator:0x0/0x0/FULL,ACL:CIFSTESTDOM\user2:0x0/0x0/FULL" <file_name>
+
+Set owner SID
+=============
+
+  setcifsacl -o "S-1-5-21-3338130290-3403600371-1423429424-2102" <file_name>
+
+Set group SID
+=============
+
+  setcifsacl -g "Administrators@BUILTIN" <file_name>
 
 *****
 NOTES

@@ -26,7 +26,9 @@
 #define _CIFSACL_H
 
 #define BUFSIZE 1024
-#define ATTRNAME "system.cifs_acl"
+#define ATTRNAME	"system.cifs_acl"
+#define ATTRNAME_ACL	ATTRNAME
+#define ATTRNAME_NTSD	"system.cifs_ntsd"
 
 #define MAX_NUM_AUTHS 6
 
