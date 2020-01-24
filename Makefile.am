@@ -121,7 +121,9 @@ install-exec-hook:
 	(cd $(DESTDIR)$(ROOTSBINDIR) && ln -sf mount.cifs mount.smb3)
 
 install-data-hook:
-	(cd $(DESTDIR)$(man8dir) && ln -sf mount.cifs.8 mount.smb3.8)
+if CONFIG_MAN
+	( cd $(DESTDIR)$(man8dir) && ln -sf mount.cifs.8 mount.smb3.8)
+endif
 
 uninstall-hook:
 	(cd $(DESTDIR)$(ROOTSBINDIR) && rm -f $(ROOTSBINDIR)/mount.smb3)
