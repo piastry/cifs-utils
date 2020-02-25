@@ -420,6 +420,12 @@ forcemandatorylock
 locallease
   Check cached leases locally instead of querying the server.
 
+nolease
+  Do not request lease/oplock when openning a file on the server. This turns
+  off local caching of IO, byte-range lock and read metadata operations
+  (see ``actimeo`` for more details about metadata caching). Requires SMB2
+  and above (see ``vers``).
+
 sfu
   When the CIFS or SMB3 Unix Extensions are not negotiated, attempt to create
   device files and fifos in a format compatible with Services for Unix
