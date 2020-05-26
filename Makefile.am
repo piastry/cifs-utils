@@ -117,7 +117,7 @@ endif
 
 SUBDIRS = contrib
 
-install-exec-hook:
+install-exec-hook: install-sbinPROGRAMS
 	(cd $(DESTDIR)$(ROOTSBINDIR) && ln -sf mount.cifs mount.smb3)
 
 install-data-hook:
