@@ -82,8 +82,8 @@ EXAMPLES
 Add an ACE
 ==========
 
-  setcifsacl -a "ACL:CIFSTESTDOM\user2:DENIED/0x1/D" <file_name>
-  setcifsacl -a "ACL:CIFSTESTDOM\user1:ALLOWED/OI|CI|NI/D" <file_name>
+  setcifsacl -a "ACL:CIFSTESTDOM\\user2:DENIED/0x1/D" <file_name>
+  setcifsacl -a "ACL:CIFSTESTDOM\\user1:ALLOWED/OI|CI|NI/D" <file_name>
 
 Delete an ACE
 =============
@@ -93,12 +93,12 @@ Delete an ACE
 Modify an ACE
 =============
 
-  setcifsacl -M "ACL:CIFSTESTDOM\user1:ALLOWED/0x1f/CHANGE" <file_name>
+  setcifsacl -M "ACL:CIFSTESTDOM\\user1:ALLOWED/0x1f/CHANGE" <file_name>
 
 Set an ACL
 ==========
 
-  setcifsacl -S "ACL:CIFSTESTDOM\Administrator:0x0/0x0/FULL,ACL:CIFSTESTDOM\user2:0x0/0x0/FULL" <file_name>
+  setcifsacl -S "ACL:CIFSTESTDOM\\Administrator:0x0/0x0/FULL,ACL:CIFSTESTDOM\\user2:0x0/0x0/FULL" <file_name>
 
 Set owner SID
 =============
