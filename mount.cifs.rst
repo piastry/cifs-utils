@@ -1,6 +1,6 @@
-=====================
-mount.cifs mount.smb3
-=====================
+======================
+mount.cifs, mount.smb3
+======================
 
 --------------------------------------------------
 mount using the Common Internet File System (CIFS)
