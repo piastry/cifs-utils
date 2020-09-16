@@ -171,7 +171,11 @@
 
 #define NTFS_TIME_OFFSET ((unsigned long long)(369*365 + 89) * 24 * 3600 * 10000000)
 
-/* struct for holding parsed mount info for use by privileged process */
+/*
+* struct for holding parsed mount info for use by privileged process.
+* Please do not keep pointers in this struct.
+* That way, reinit of this struct is a simple memset.
+*/
 struct parsed_mount_info {
 	unsigned long flags;
 	char host[NI_MAXHOST + 1];
@@ -189,6 +193,8 @@ struct parsed_mount_info {
 	unsigned int verboseflag:1;
 	unsigned int nofail:1;
 	unsigned int got_domain:1;
+	unsigned int is_krb5:1;
+	uid_t sudo_uid;
 };
 
 static const char *thisprogram;
@@ -907,9 +913,12 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 
 		case OPT_SEC:
 			if (value) {
-				if (!strncmp(value, "none", 4) ||
-				    !strncmp(value, "krb5", 4))
+				if (!strncmp(value, "none", 4))
 					parsed_info->got_password = 1;
+				if (!strncmp(value, "krb5", 4)) {
+					parsed_info->is_krb5 = 1;
+					parsed_info->got_password = 1;
+				}
 			}
 			break;
 
@@ -1214,6 +1223,10 @@ nocopy:
 		}
 		snprintf(out + out_len, word_len + 5, "uid=%s", txtbuf);
 		out_len = strlen(out);
+	}
+	if (parsed_info->is_krb5 && parsed_info->sudo_uid) {
+		cruid = parsed_info->sudo_uid;
+		got_cruid = 1;
 	}
 	if (got_cruid) {
 		word_len = snprintf(txtbuf, sizeof(txtbuf), "%u", cruid);
@@ -2031,12 +2044,17 @@ int main(int argc, char **argv)
 	char *options = NULL;
 	char *orig_dev = NULL;
 	char *currentaddress, *nextaddress;
+	char *value = NULL;
+	char *ep = NULL;
 	int rc = 0;
 	int already_uppercased = 0;
 	int sloppy = 0;
+	int fallback_sudo_uid = 0;
 	size_t options_size = MAX_OPTIONS_LEN;
 	struct parsed_mount_info *parsed_info = NULL;
+	struct parsed_mount_info *reinit_parsed_info = NULL;
 	pid_t pid;
+	uid_t sudo_uid = 0;
 
 	rc = check_setuid();
 	if (rc)
@@ -2072,7 +2090,23 @@ int main(int argc, char **argv)
 		parsed_info = NULL;
 		fprintf(stderr, "Unable to allocate memory: %s\n",
 				strerror(errno));
-		return EX_SYSERR;
+		rc = EX_SYSERR;
+		goto mount_exit;
+	}
+
+	reinit_parsed_info = malloc(sizeof(*reinit_parsed_info));
+	if (reinit_parsed_info == NULL) {
+		fprintf(stderr, "Unable to allocate memory: %s\n",
+				strerror(errno));
+		rc = EX_SYSERR;
+		goto mount_exit;
+	}
+
+	options = calloc(options_size, 1);
+	if (!options) {
+		fprintf(stderr, "Unable to allocate memory.\n");
+		rc = EX_SYSERR;
+		goto mount_exit;
 	}
 
 	/* add sharename in opts string as unc= parm */
@@ -2129,10 +2163,13 @@ int main(int argc, char **argv)
 	/* chdir into mountpoint as soon as possible */
 	rc = acquire_mountpoint(&mountpoint);
 	if (rc) {
-		free(orgoptions);
-		return rc;
+		goto mount_exit;
 	}
 
+	/* Before goto assemble_retry, reinitialize parsed_info with reinit_parsed_info */
+	memcpy(reinit_parsed_info, parsed_info,	sizeof(*reinit_parsed_info));
+
+assemble_retry:
 	/*
 	 * mount.cifs does privilege separation. Most of the code to handle
 	 * assembling the mount info is done in a child process that drops
@@ -2150,9 +2187,7 @@ int main(int argc, char **argv)
 		/* child */
 		rc = assemble_mountinfo(parsed_info, thisprogram, mountpoint,
 					orig_dev, orgoptions);
-		free(orgoptions);
-		free(mountpoint);
-		return rc;
+		goto mount_child_exit;
 	} else {
 		/* parent */
 		pid = wait(&rc);
@@ -2166,19 +2201,13 @@ int main(int argc, char **argv)
 			goto mount_exit;
 	}
 
-	options = calloc(options_size, 1);
-	if (!options) {
-		fprintf(stderr, "Unable to allocate memory.\n");
-		rc = EX_SYSERR;
-		goto mount_exit;
-	}
-
 	currentaddress = parsed_info->addrlist;
 	nextaddress = strchr(currentaddress, ',');
 	if (nextaddress)
 		*nextaddress++ = '\0';
 
 mount_retry:
+	options[0] = '\0';
 	if (!currentaddress) {
 		fprintf(stderr, "Unable to find suitable address.\n");
 		rc = parsed_info->nofail ? 0 : EX_FAIL;
@@ -2269,6 +2298,24 @@ mount_retry:
 				already_uppercased = 1;
 				goto mount_retry;
 			}
+			break;
+		case ENOKEY:
+			if (!fallback_sudo_uid && parsed_info->is_krb5) {
+				/* mount could have failed because cruid option was not passed when triggered with sudo */
+				value = getenv("SUDO_UID");
+				if (value) {
+					errno = 0;
+					sudo_uid = strtoul(value, &ep, 10);
+					if (errno == 0 && *ep == '\0' && sudo_uid) {
+						/* Reinitialize parsed_info and assemble options again with sudo_uid */
+						memcpy(parsed_info, reinit_parsed_info, sizeof(*parsed_info));
+						parsed_info->sudo_uid = sudo_uid;
+						fallback_sudo_uid = 1;
+						goto assemble_retry;
+					}
+				}
+			}
+			break;
 		}
 		fprintf(stderr, "mount error(%d): %s\n", errno,
 			strerror(errno));
@@ -2295,6 +2342,10 @@ mount_exit:
 		memset(parsed_info->password, 0, sizeof(parsed_info->password));
 		munmap(parsed_info, sizeof(*parsed_info));
 	}
+
+mount_child_exit:
+	/* Objects to be freed both in main process and child */
+	free(reinit_parsed_info);
 	free(options);
 	free(orgoptions);
 	free(mountpoint);
