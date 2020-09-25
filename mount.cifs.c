@@ -777,6 +777,8 @@ static int parse_opt_token(const char *token)
 		return OPT_BKUPGID;
 	if (strcmp(token, "nofail") == 0)
 		return OPT_NOFAIL;
+	if (strcmp(token, "comment") == 0)
+		return OPT_IGNORE;
 	if (strncmp(token, "x-", 2) == 0)
 		return OPT_IGNORE;
 	if (strncmp(token, "snapshot", 8) == 0)
