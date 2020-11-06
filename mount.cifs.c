@@ -221,6 +221,7 @@ check_fstab(const char *progname, const char *mountpoint, const char *devname,
 {
 	FILE *fstab;
 	struct mntent *mnt;
+	size_t len;
 
 	/* make sure this mount is listed in /etc/fstab */
 	fstab = setmntent(_PATH_MNTTAB, "r");
@@ -230,6 +231,14 @@ check_fstab(const char *progname, const char *mountpoint, const char *devname,
 	}
 
 	while ((mnt = getmntent(fstab))) {
+		len = strlen(mnt->mnt_dir);
+		while (len > 1) {
+		        if (mnt->mnt_dir[len - 1] == '/')
+			        mnt->mnt_dir[len - 1] = '\0';
+		        else
+				break;
+			len--;
+		}
 		if (!strcmp(mountpoint, mnt->mnt_dir))
 			break;
 	}
