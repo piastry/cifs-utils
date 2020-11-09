@@ -344,13 +344,13 @@ getcifsacl_usage(const char *prog)
 	fprintf(stderr, "\nRefer to getcifsacl(1) manpage for details\n");
 }
 
-static void
+static int
 getcifsacl(const char *filename)
 {
 	ssize_t attrlen;
 	size_t bufsize = BUFSIZE;
 	char *attrval;
-	int failed = 0;
+	int rc = 0;
 cifsacl:
 	if (bufsize >= XATTR_SIZE_MAX) {
 		fprintf(stderr, "buffer to allocate exceeds max size of %d\n",
@@ -373,16 +373,17 @@ cifsacl:
 		} else {
 			fprintf(stderr, "Failed to getxattr %s: %s\n", filename,
 				strerror(errno));
-			failed = -1;
+			rc = -1;
 		}
 	}
 
-	if (failed == 0) {
+	if (rc == 0) {
 		printf("# filename: %s\n", filename);
 		parse_sec_desc((struct cifs_ntsd *)attrval, attrlen, raw);
 		printf("\n");
 	}
 	free(attrval);
+	return rc;
 }
 
 static int recursive(const char *filename, const struct stat *sb, int tflag, struct FTW *ftwbuf)
@@ -390,8 +391,7 @@ static int recursive(const char *filename, const struct stat *sb, int tflag, str
 	(void)sb;
 	(void)tflag;
 	(void)ftwbuf;
-	getcifsacl(filename);
-	return 0;
+	return getcifsacl(filename);
 }
 
 int
@@ -400,6 +400,7 @@ main(const int argc, char *const argv[])
 	int c, ret = 0;
 	execname = basename(argv[0]);
 	int do_recursive = 0;
+	int tmp_rc;
 
 	if (argc < 2) {
 		fprintf(stderr, "%s: you must specify a filename.\n", execname);
@@ -439,13 +440,16 @@ main(const int argc, char *const argv[])
 			plugin_loaded = true;
 	}
 
+	ret = 0;
 	for(; optind < argc; optind++) {
-		if(do_recursive) {
+		if (do_recursive) {
 			if (nftw(argv[optind], recursive, 20, 0) == -1)
 				fprintf(stderr, "Invalid filename %s: %s\n", argv[optind], strerror(errno));
+		} else {
+			tmp_rc = getcifsacl(argv[optind]);
+			if (tmp_rc && !ret)
+				ret = tmp_rc;
 		}
-		else
-			getcifsacl(argv[optind]);
 	}
 
 out:
