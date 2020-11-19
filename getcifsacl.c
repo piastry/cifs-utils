@@ -47,6 +47,11 @@ static bool raw = false;
 static void
 print_each_ace_mask(uint32_t mask)
 {
+	if ((mask & ALL_ACCESS_BITS) == ALL_ACCESS_BITS) {
+		printf("RWXDPO");
+		return;
+	}
+
 	if ((mask & ALL_READ_BITS) && ((mask & EREAD) != EREAD &&
 			(mask & OREAD) != OREAD && (mask & BREAD) != BREAD)) {
 		printf("0x%x", mask);
@@ -74,32 +79,48 @@ print_each_ace_mask(uint32_t mask)
 }
 
 static void
-print_ace_mask(uint32_t mask, int raw)
+print_ace_mask(uint32_t mask, int raw, ace_kinds ace_kind)
 {
 	if (raw) {
 		printf("0x%x\n", mask);
 		return;
 	}
 
-	if (mask == FULL_CONTROL)
-		printf("FULL");
-	else if (mask == CHANGE)
-		printf("CHANGE");
-	else if (mask == DELETE)
-		printf("D");
-	else if (mask == EREAD)
-		printf("READ");
-	else if (mask & DELDHLD)
-		printf("0x%x", mask);
-	else
-		print_each_ace_mask(mask);
-
+	switch (ace_kind) {
+	case ACE_KIND_SACL:
+		if (mask == FULL_CONTROL)
+			printf("FULL");
+		else if (mask == CHANGE)
+			printf("CHANGE");
+		else if (mask == DELETE)
+			printf("D");
+		else if (mask == EREAD)
+			printf("READ");
+		else
+			print_each_ace_mask(mask);
+	break;
+	case ACE_KIND_DACL:
+	default:
+		if (mask == FULL_CONTROL)
+			printf("FULL");
+		else if (mask == CHANGE)
+			printf("CHANGE");
+		else if (mask == DELETE)
+			printf("D");
+		else if (mask == EREAD)
+			printf("READ");
+		else if (mask & DELDHLD)
+			printf("0x%x", mask);
+		else
+			print_each_ace_mask(mask);
+	break;
+	}
 	printf("\n");
 	return;
 }
 
 static void
-print_ace_flags(uint8_t flags, int raw)
+print_ace_flags(uint8_t flags, int raw, ace_kinds ace_kind)
 {
 	bool mflags = false;
 
@@ -108,37 +129,54 @@ print_ace_flags(uint8_t flags, int raw)
 		return;
 	}
 
-	if (flags & OBJECT_INHERIT_FLAG) {
-		mflags = true;
-		printf("OI");
-	}
-	if (flags & CONTAINER_INHERIT_FLAG) {
-		if (mflags)
-			printf("|");
-		else
+	switch (ace_kind) {
+	case ACE_KIND_SACL:
+		if (flags & SUCCESSFUL_ACCESS) {
 			mflags = true;
-		printf("CI");
-	}
-	if (flags & NO_PROPAGATE_INHERIT_FLAG) {
-		if (mflags)
-			printf("|");
-		else
+			printf("SA");
+		}
+		if (flags & FAILED_ACCESS) {
+			if (mflags)
+				printf("|");
+			else
+				mflags = true;
+			printf("FA");
+		}
+		break;
+	case ACE_KIND_DACL:
+		if (flags & OBJECT_INHERIT_FLAG) {
 			mflags = true;
-		printf("NP");
-	}
-	if (flags & INHERIT_ONLY_FLAG) {
-		if (mflags)
-			printf("|");
-		else
-			mflags = true;
-		printf("IO");
-	}
-	if (flags & INHERITED_ACE_FLAG) {
-		if (mflags)
-			printf("|");
-		else
-			mflags = true;
-		printf("I");
+			printf("OI");
+		}
+		if (flags & CONTAINER_INHERIT_FLAG) {
+			if (mflags)
+				printf("|");
+			else
+				mflags = true;
+			printf("CI");
+		}
+		if (flags & NO_PROPAGATE_INHERIT_FLAG) {
+			if (mflags)
+				printf("|");
+			else
+				mflags = true;
+			printf("NP");
+		}
+		if (flags & INHERIT_ONLY_FLAG) {
+			if (mflags)
+				printf("|");
+			else
+				mflags = true;
+			printf("IO");
+		}
+		if (flags & INHERITED_ACE_FLAG) {
+			if (mflags)
+				printf("|");
+			else
+				mflags = true;
+			printf("I");
+		}
+		break;
 	}
 
 	if (!mflags)
@@ -165,6 +203,27 @@ print_ace_type(uint8_t acetype, int raw)
 		break;
 	case ACCESS_DENIED_OBJECT:
 		printf("OBJECT_DENIED");
+		break;
+	case SYSTEM_AUDIT:
+		printf("AUDIT");
+		break;
+	case SYSTEM_AUDIT_OBJECT:
+		printf("AUDIT_OBJECT");
+		break;
+	case SYSTEM_AUDIT_CALLBACK:
+		printf("AUDIT_CALLBACK");
+		break;
+	case SYSTEM_AUDIT_CALLBACK_OBJECT:
+		printf("AUDIT_CALLBACK_OBJECT");
+		break;
+	case SYSTEM_MANDATORY_LABEL:
+		printf("MANDATORY_LABEL");
+		break;
+	case SYSTEM_RESOURCE_ATTRIBUTE:
+		printf("RESOURCE_ATTRIBUTE");
+		break;
+	case SYSTEM_SCOPED_POLICY_ID:
+		printf("SCOPED_POLICY_ID");
 		break;
 	default:
 		printf("UNKNOWN");
@@ -214,7 +273,7 @@ print_sid_raw:
 }
 
 static void
-print_ace(struct cifs_ace *pace, char *end_of_acl, int raw)
+print_ace(struct cifs_ace *pace, char *end_of_acl, int raw, ace_kinds ace_kind)
 {
 	uint16_t size;
 
@@ -237,15 +296,15 @@ print_ace(struct cifs_ace *pace, char *end_of_acl, int raw)
 	printf(":");
 	print_ace_type(pace->type, raw);
 	printf("/");
-	print_ace_flags(pace->flags, raw);
+	print_ace_flags(pace->flags, raw, ace_kind);
 	printf("/");
-	print_ace_mask(le32toh(pace->access_req), raw);
+	print_ace_mask(le32toh(pace->access_req), raw, ace_kind);
 
 	return;
 }
 
 static void
-parse_dacl(struct cifs_ctrl_acl *pdacl, char *end_of_acl, int raw)
+  parse_acl(struct cifs_ctrl_acl *pacl, char *end_of_acl, int raw, ace_kinds ace_kind)
 {
 	int i;
 	int num_aces = 0;
@@ -253,20 +312,20 @@ parse_dacl(struct cifs_ctrl_acl *pdacl, char *end_of_acl, int raw)
 	char *acl_base;
 	struct cifs_ace *pace;
 
-	if (!pdacl)
+	if (!pacl)
 		return;
 
-	if (end_of_acl < (char *)pdacl + le16toh(pdacl->size))
+	if (end_of_acl < (char *)pacl + le16toh(pacl->size))
 		return;
 
-	acl_base = (char *)pdacl;
+	acl_base = (char *)pacl;
 	acl_size = sizeof(struct cifs_ctrl_acl);
 
-	num_aces = le32toh(pdacl->num_aces);
+	num_aces = le32toh(pacl->num_aces);
 	if (num_aces  > 0) {
 		for (i = 0; i < num_aces; ++i) {
 			pace = (struct cifs_ace *) (acl_base + acl_size);
-			print_ace(pace, end_of_acl, raw);
+			print_ace(pace, end_of_acl, raw, ace_kind);
 			acl_base = (char *)pace;
 			acl_size = le16toh(pace->size);
 		}
@@ -293,10 +352,10 @@ static int
 parse_sec_desc(struct cifs_ntsd *pntsd, ssize_t acl_len, int raw)
 {
 	int rc;
-	uint32_t dacloffset;
+	uint32_t dacloffset, sacloffset;
 	char *end_of_acl = ((char *)pntsd) + acl_len;
 	struct cifs_sid *owner_sid_ptr, *group_sid_ptr;
-	struct cifs_ctrl_acl *dacl_ptr; /* no need for SACL ptr */
+	struct cifs_ctrl_acl *dacl_ptr, *sacl_ptr;
 
 	if (pntsd == NULL)
 		return -EIO;
@@ -307,6 +366,9 @@ parse_sec_desc(struct cifs_ntsd *pntsd, ssize_t acl_len, int raw)
 				le32toh(pntsd->gsidoffset));
 	dacloffset = le32toh(pntsd->dacloffset);
 	dacl_ptr = (struct cifs_ctrl_acl *)((char *)pntsd + dacloffset);
+	sacloffset = le32toh(pntsd->sacloffset);
+	sacl_ptr = (struct cifs_ctrl_acl *)((char *)pntsd + sacloffset);
+
 	printf("REVISION:0x%x\n", le16toh(pntsd->revision));
 	printf("CONTROL:0x%x\n", le16toh(pntsd->type));
 
@@ -318,10 +380,19 @@ parse_sec_desc(struct cifs_ntsd *pntsd, ssize_t acl_len, int raw)
 	if (rc)
 		return rc;
 
-	if (dacloffset)
-		parse_dacl(dacl_ptr, end_of_acl, raw);
-	else
-		printf("No ACL\n"); /* BB grant all or default perms? */
+	if (dacloffset) {
+		printf("DACL:\n");
+		parse_acl(dacl_ptr, end_of_acl, raw, ACE_KIND_DACL);
+	} else {
+		printf("No DACL\n"); /* BB grant all or default perms? */
+	}
+
+	if (sacloffset) {
+		printf("SACL:\n");
+		parse_acl(sacl_ptr, end_of_acl, raw, ACE_KIND_SACL);
+	} else {
+		printf("No SACL\n");
+	}
 
 	return 0;
 }
@@ -351,6 +422,9 @@ getcifsacl(const char *filename)
 	size_t bufsize = BUFSIZE;
 	char *attrval;
 	int rc = 0;
+	/* use attribute name to fetch the whole descriptor */
+	char *attrname = ATTRNAME_NTSD_FULL;
+
 cifsacl:
 	if (bufsize >= XATTR_SIZE_MAX) {
 		fprintf(stderr, "buffer to allocate exceeds max size of %d\n",
@@ -364,12 +438,35 @@ cifsacl:
 		exit(1);
 	}
 
-	attrlen = getxattr(filename, ATTRNAME, attrval, bufsize);
+getxattr:
+	attrlen = getxattr(filename, attrname, attrval, bufsize);
 	if (attrlen == -1) {
 		if (errno == ERANGE) {
 			free(attrval);
 			bufsize += BUFSIZE;
 			goto cifsacl;
+		} else if (errno == EIO && !(strcmp(attrname, ATTRNAME_NTSD_FULL))) {
+			/*
+			 * attempt to fetch SACL in addition to owner and DACL via
+			 * ATTRNAME_NTSD_FULL, fall back to owner/DACL via
+			 * ATTRNAME_ACL if not allowed
+			 * CIFS client maps STATUS_PRIVILEGE_NOT_HELD to EIO
+			 */
+			fprintf(stderr, "WARNING: Insufficient priviledges to fetch SACL for %s\n",
+				filename);
+			fprintf(stderr, "          Fetching owner info and DACL only\n");
+			attrname = ATTRNAME_ACL;
+			goto getxattr;
+		} else if (errno == EOPNOTSUPP && !(strcmp(attrname, ATTRNAME_NTSD_FULL))) {
+			/*
+			 * no support for fetching SACL, fall back to owner/DACL via
+			 * ATTRNAME_ACL
+			 */
+			fprintf(stderr, "WARNING: CIFS client does not support fetching SACL for %s\n",
+				filename);
+			fprintf(stderr, "          Fetching owner info and DACL only\n");
+			attrname = ATTRNAME_ACL;
+			goto getxattr;
 		} else {
 			fprintf(stderr, "Failed to getxattr %s: %s\n", filename,
 				strerror(errno));

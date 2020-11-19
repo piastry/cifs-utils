@@ -3,7 +3,7 @@ setcifsacl
 ==========
 
 -------------------------------------------------------------------------------------------------------------------
-Userspace helper to alter an ACL or owner/group SID in a security descriptor for Common Internet File System (CIFS)
+Userspace helper to alter components of a security descriptor for Common Internet File System (CIFS)
 -------------------------------------------------------------------------------------------------------------------
 :Manual section: 1
 
@@ -11,7 +11,7 @@ Userspace helper to alter an ACL or owner/group SID in a security descriptor for
 SYNOPSIS
 ********
 
-  setcifsacl [-v|-a|-D|-M|-S|-o|-g] "{one or more ACEs or a SID}" {file system object}
+  setcifsacl [-v|-U|-a|-D|-M|-S|-o|-g] "{one or more ACEs or a SID}" {file system object}
 
 ***********
 DESCRIPTION
@@ -37,6 +37,10 @@ OPTIONS
 
 -v
   Print version number and exit.
+
+-U
+  Apply ACE editing actions (-a, -D, -M, -S) to SACL (aUdit ACL). The actions are
+  appliend to DACL if -U is not specified.
 
 -a
   Add one or more ACEs to an ACL of a security descriptor.  An ACE is
@@ -65,7 +69,7 @@ OPTIONS
   Every ACE entry starts with "ACL:" One or more ACEs are specified
   within double quotes.  Multiple ACEs are separated by a comma.
 
-  Following fields of an ACE can be modified with possible values:
+  Following fields of a DACL ACE can be modified with possible values:
 
   - ``SID`` - Either a name or a raw SID value.
   - ``type`` - ALLOWED (0x0), DENIED (0x1), OBJECT_ALLOWED (0x5), OBJECT_DENIED (0x6)
@@ -73,6 +77,14 @@ OPTIONS
     CONTAINER_INHERIT_FLAG (CI or 0x2), NO_PROPAGATE_INHERIT_FLAG (NI
     or 0x4), INHERIT_ONLY_FLAG (IO or 0x8), INHERITED_ACE_FLAG (IA or
     0x10) or a combination/OR of these values.
+  - ``mask``  - Either one of FULL, CHANGE, READ, a combination of R W X D P O, or a hex value.
+
+  Following fields of a SACL ACE can be modified with possible values:
+
+  - ``SID`` - Either a name or a raw SID value.
+  - ``type`` - AUDIT (0x2), AUDIT_OBJECT (0x7), AUDIT_CALLBACK (0xD), AUDIT_CALLBACK_OBJECT (0xF),
+    MANDATORY_LABEL (0x11), RESOURCE_ATTRIBUTE (0x12), SCOPED_POLICY_ID (0x13)
+  - ``flags`` - SUCCESSFULL_ACCESS (SA or 0x40), FAILED_ACCESS (FA or 0x80)
   - ``mask``  - Either one of FULL, CHANGE, READ, a combination of R W X D P O, or a hex value.
 
 ********
@@ -83,22 +95,31 @@ Add an ACE
 ==========
 
   setcifsacl -a "ACL:CIFSTESTDOM\\user2:DENIED/0x1/D" <file_name>
+
   setcifsacl -a "ACL:CIFSTESTDOM\\user1:ALLOWED/OI|CI|NI/D" <file_name>
+
+  setcifsacl -U -a "ACL:CIFSTESTDOM\\user1:AUDIT/SA/D" <file_name>
 
 Delete an ACE
 =============
 
   setcifsacl -D "ACL:S-1-1-0:0x1/OI/0x1201ff" <file_name>
 
+  setcifsacl -U -D "ACL:S-1-1-0:0x2/FA/0xf01ff" <file_name>
+
 Modify an ACE
 =============
 
   setcifsacl -M "ACL:CIFSTESTDOM\\user1:ALLOWED/0x1f/CHANGE" <file_name>
 
+  setcifsacl -U -M "ACL:CIFSTESTDOM\\user1:AUDIT_OBJECT/SA/CHANGE" <file_name>
+
 Set an ACL
 ==========
 
   setcifsacl -S "ACL:CIFSTESTDOM\\Administrator:0x0/0x0/FULL,ACL:CIFSTESTDOM\\user2:0x0/0x0/FULL" <file_name>
+
+  setcifsacl -U -S "ACL:CIFSTESTDOM\\Administrator:AUDIT/SA/FULL,ACL:CIFSTESTDOM\\user2:0x7/0x80/FULL" <file_name>
 
 Set owner SID
 =============

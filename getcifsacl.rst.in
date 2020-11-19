@@ -20,8 +20,8 @@ DESCRIPTION
 This tool is part of the cifs-utils suite.
 
 ``getcifsacl`` is a userspace helper program for the Linux CIFS client
-file system. It is intended to display a security descriptor including
-ACL for a file system object.
+file system. It is intended to display a security descriptor, including
+DACL and SACL for a file system object.
 
 This program uses a plugin to handle the mapping of SIDs to user and
 group names. *@pluginpath@* should be a symlink that points to the
