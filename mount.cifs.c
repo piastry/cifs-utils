@@ -347,6 +347,8 @@ static int set_password(struct parsed_mount_info *parsed_info, const char *src)
 static int
 drop_capabilities(int parent)
 {
+	capng_select_t set = CAPNG_SELECT_CAPS;
+
 	capng_setpid(getpid());
 	capng_clear(CAPNG_SELECT_BOTH);
 	if (parent) {
@@ -364,7 +366,10 @@ drop_capabilities(int parent)
 			return EX_SYSERR;
 		}
 	}
-	if (capng_apply(CAPNG_SELECT_BOTH)) {
+	if (capng_have_capability(CAPNG_EFFECTIVE, CAP_SETPCAP)) {
+		set = CAPNG_SELECT_BOTH;
+	}
+	if (capng_apply(set)) {
 		fprintf(stderr, "Unable to apply new capability set.\n");
 		return EX_SYSERR;
 	}
