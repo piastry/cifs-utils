@@ -88,6 +88,8 @@ typedef enum _sectype {
 static int
 trim_capabilities(bool need_environ)
 {
+	capng_select_t set = CAPNG_SELECT_CAPS;
+
 	capng_clear(CAPNG_SELECT_BOTH);
 
 	/* SETUID and SETGID to change uid, gid, and grouplist */
@@ -105,7 +107,10 @@ trim_capabilities(bool need_environ)
 		return 1;
 	}
 
-	if (capng_apply(CAPNG_SELECT_BOTH)) {
+	if (capng_have_capability(CAPNG_EFFECTIVE, CAP_SETPCAP)) {
+		set = CAPNG_SELECT_BOTH;
+	}
+	if (capng_apply(set)) {
 		syslog(LOG_ERR, "%s: Unable to apply capability set: %m\n", __func__);
 		return 1;
 	}
