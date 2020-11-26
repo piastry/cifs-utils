@@ -1245,6 +1245,7 @@ nocopy:
 			out_len++;
 		}
 		snprintf(out + out_len, word_len + 5, "gid=%s", txtbuf);
+		out_len = strlen(out);
 	}
 	if (got_bkupuid) {
 		word_len = snprintf(txtbuf, sizeof(txtbuf), "%u", bkupuid);
@@ -1276,6 +1277,7 @@ nocopy:
 			out_len++;
 		}
 		snprintf(out + out_len, word_len + 11, "backupgid=%s", txtbuf);
+		out_len = strlen(out);
 	}
 	if (got_snapshot) {
 		word_len = snprintf(txtbuf, sizeof(txtbuf), "%llu", snapshot);
@@ -1291,6 +1293,7 @@ nocopy:
 			out_len++;
 		}
 		snprintf(out + out_len, word_len + 11, "snapshot=%s", txtbuf);
+		out_len = strlen(out);
 	}
 
 	return 0;
