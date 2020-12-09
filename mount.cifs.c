@@ -1292,7 +1292,7 @@ nocopy:
 			strlcat(out, ",", MAX_OPTIONS_LEN);
 			out_len++;
 		}
-		snprintf(out + out_len, word_len + 11, "snapshot=%s", txtbuf);
+		snprintf(out + out_len, word_len + 10, "snapshot=%s", txtbuf);
 		out_len = strlen(out);
 	}
 
