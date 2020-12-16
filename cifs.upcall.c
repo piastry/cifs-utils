@@ -120,8 +120,13 @@ trim_capabilities(bool need_environ)
 static int
 drop_all_capabilities(void)
 {
+	capng_select_t set = CAPNG_SELECT_CAPS;
+
 	capng_clear(CAPNG_SELECT_BOTH);
-	if (capng_apply(CAPNG_SELECT_BOTH)) {
+	if (capng_have_capability(CAPNG_EFFECTIVE, CAP_SETPCAP)) {
+		set = CAPNG_SELECT_BOTH;
+	}
+	if (capng_apply(set)) {
 		syslog(LOG_ERR, "%s: Unable to apply capability set: %m\n", __func__);
 		return 1;
 	}
