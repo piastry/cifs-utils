@@ -527,7 +527,7 @@ def print_filestandardinfo(buf):
     print("Delete Directory: %d"%del_dir)
 
 def guid_to_str(buf):
-    return "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x"%struct.unpack_from('<ISSBBBBBBBB', buf, 0)
+    return "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x"%struct.unpack_from('<IHHBBBBBBBB', buf, 0)
 
 def cmd_fsctl_getobjid(args):
     qi = QueryInfoStruct(info_type=0x9009c, file_info_class=5, flags=PASSTHRU_FSCTL, input_buffer_length=64)
