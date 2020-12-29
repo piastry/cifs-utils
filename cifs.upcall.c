@@ -51,6 +51,7 @@
 #include <grp.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <sched.h>
 
 #include "data_blob.h"
 #include "spnego.h"
@@ -238,6 +239,164 @@ err_ccstart:
 	krb5_free_principal(context, principal);
 err_cache:
 	return credtime;
+}
+
+static struct namespace_file {
+	int nstype;
+	const char *name;
+	int fd;
+} namespace_files[] = {
+
+#ifdef CLONE_NEWCGROUP
+	{ CLONE_NEWCGROUP, "cgroup", -1 },
+#endif
+
+#ifdef CLONE_NEWIPC
+	{ CLONE_NEWIPC, "ipc", -1 },
+#endif
+
+#ifdef CLONE_NEWUTS
+	{ CLONE_NEWUTS, "uts", -1 },
+#endif
+
+#ifdef CLONE_NEWNET
+	{ CLONE_NEWNET, "net", -1 },
+#endif
+
+#ifdef CLONE_NEWPID
+	{ CLONE_NEWPID, "pid", -1 },
+#endif
+
+#ifdef CLONE_NEWTIME
+	{ CLONE_NEWTIME, "time", -1 },
+#endif
+
+#ifdef CLONE_NEWNS
+	{ CLONE_NEWNS, "mnt", -1 },
+#endif
+
+#ifdef CLONE_NEWUSER
+	{ CLONE_NEWUSER, "user", -1 },
+#endif
+};
+
+#define NS_PATH_FMT    "/proc/%d/ns/%s"
+#define NS_PATH_MAXLEN (6 + 10 + 4 + 6 + 1)
+
+/**
+ * in_same_user_ns - return true if two processes are in the same user
+ *                   namespace.
+ * @pid_a: the pid of the first process
+ * @pid_b: the pid of the second process
+ *
+ * Works by comparing the inode numbers for /proc/<pid>/user.
+ */
+static int
+in_same_user_ns(pid_t pid_a, pid_t pid_b)
+{
+	char path[NS_PATH_MAXLEN];
+	ino_t a_ino, b_ino;
+	struct stat st;
+
+	snprintf(path, sizeof(path), NS_PATH_FMT, pid_a, "user");
+	if (stat(path, &st) != 0)
+		return 0;
+	a_ino = st.st_ino;
+
+	snprintf(path, sizeof(path), NS_PATH_FMT, pid_b, "user");
+	if (stat(path, &st) != 0)
+		return 0;
+	b_ino = st.st_ino;
+
+	return a_ino == b_ino;
+}
+
+/**
+ * switch_to_process_ns - change the namespace to the one for the specified
+ *                        process.
+ * @pid: initiating pid value from the upcall string
+ *
+ * Uses setns() to switch process namespace.
+ * This ensures that we have the same access and configuration as the
+ * process that triggered the lookup.
+ */
+static int
+switch_to_process_ns(pid_t pid)
+{
+	int count = sizeof(namespace_files) / sizeof(struct namespace_file);
+	int n, err = 0;
+	int rc = 0;
+
+	/* First, open all the namespace fds.  We do this first because
+	   the namespace changes might prohibit us from opening them. */
+	for (n = 0; n < count; ++n) {
+		char nspath[NS_PATH_MAXLEN];
+		int ret, fd;
+
+#ifdef CLONE_NEWUSER
+		if (namespace_files[n].nstype == CLONE_NEWUSER
+		    && in_same_user_ns(getpid(), pid)) {
+			/* Switching to the same user namespace is forbidden,
+			   because switching to a user namespace grants all
+			   capabilities in that namespace regardless of uid. */
+			namespace_files[n].fd = -1;
+			continue;
+		}
+#endif
+
+		ret = snprintf(nspath, NS_PATH_MAXLEN, NS_PATH_FMT,
+			       pid, namespace_files[n].name);
+		if (ret >= NS_PATH_MAXLEN) {
+			syslog(LOG_DEBUG, "%s: unterminated path!\n", __func__);
+			err = ENAMETOOLONG;
+			rc = -1;
+			goto out;
+		}
+
+		fd = open(nspath, O_RDONLY);
+		if (fd < 0 && errno != ENOENT) {
+			/*
+			 * don't stop on non-existing ns
+			 * but stop for other errors
+			 */
+			err = errno;
+			rc = -1;
+			goto out;
+		}
+
+		namespace_files[n].fd = fd;
+	}
+
+	/* Next, call setns for each of them */
+	for (n = 0; n < count; ++n) {
+		/* skip non-existing ns */
+		if (namespace_files[n].fd < 0)
+			continue;
+
+		rc = setns(namespace_files[n].fd, namespace_files[n].nstype);
+
+		if (rc < 0) {
+			syslog(LOG_DEBUG, "%s: setns() failed for %s\n",
+			       __func__, namespace_files[n].name);
+			err = errno;
+			goto out;
+		}
+	}
+
+out:
+	/* Finally, close all the fds */
+	for (n = 0; n < count; ++n) {
+		if (namespace_files[n].fd != -1) {
+			close(namespace_files[n].fd);
+			namespace_files[n].fd = -1;
+		}
+	}
+
+	if (rc != 0) {
+		errno = err;
+	}
+
+	return rc;
 }
 
 #define	ENV_PATH_FMT			"/proc/%d/environ"
@@ -1108,6 +1267,19 @@ int main(const int argc, char *const argv[])
 	 */
 	env_cachename =
 		get_cachename_from_process_env(env_probe ? arg.pid : 0);
+
+	/*
+	 * Change to the process's namespace. This means that things will work
+	 * acceptably in containers, because we'll be looking at the correct
+	 * filesystem and have the correct network configuration.
+	 */
+	rc = switch_to_process_ns(arg.pid);
+	if (rc == -1) {
+		syslog(LOG_ERR, "unable to switch to process namespace: %s",
+		       strerror(errno));
+		rc = 1;
+		goto out;
+	}
 
 	rc = setuid(uid);
 	if (rc == -1) {
