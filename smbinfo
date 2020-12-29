@@ -26,6 +26,7 @@ import fcntl
 import struct
 import stat
 import datetime
+import calendar
 
 VERBOSE = False
 
@@ -36,6 +37,12 @@ CIFS_DUMP_KEY            = 0xc03acf08
 
 # large enough input buffer length
 INPUT_BUFFER_LENGTH = 16384
+
+# length of a @GMT- token in bytes
+GMT_TOKEN_LEN_IN_BYTES = 24 * 2
+
+# GMT format string
+GMT_FORMAT = "@GMT-%Y.%m.%d-%H.%M.%S"
 
 # cifs query flags
 PASSTHRU_QUERY_INFO = 0x00000000
@@ -587,15 +594,21 @@ class SnapshotArrayStruct:
         out.nb_snapshots, out.nb_snapshots_returned, out.snapshot_array_size = struct.unpack_from('III', buf, 0)
         data = buf[12:]
 
-        for gmt in re.findall(rb'''@([^\x00]+)''', data):
-            d = datetime.strptime("@GMT-%Y.%m.%d-%H.%M.%S")
-            out.snapshot_array.append(d)
+        # '@\x00G\x00M\x00T\x00-\x002\x000\x001\x009\x00.\x000\x004\x00.\x000\x005\x00-\x002\x003\x00.\x001\x000\x00.\x005\x000\x00\x00\x00'
+        index_start = 0
+        while index_start < len(data):
+            gmt_start = data.find(b'@', index_start)
+            if gmt_start == -1 or len(data) - gmt_start < GMT_TOKEN_LEN_IN_BYTES:
+                break
+            gmt = data[gmt_start:gmt_start + GMT_TOKEN_LEN_IN_BYTES]
+            index_start = gmt_start + GMT_TOKEN_LEN_IN_BYTES
+            out.snapshot_array.append(datetime.datetime.strptime(gmt.decode('utf-16'), GMT_FORMAT))
 
         return out
 
 def datetime_to_smb(dt):
     ntfs_time_offset = (369*365 + 89) * 24 * 3600 * 10000000
-    return datetime.datetime.timestamp(dt) * 10000000 + ntfs_time_offset
+    return calendar.timegm(dt.timetuple()) * 10000000 + ntfs_time_offset
 
 def cmd_list_snapshots(args):
     sa1req = SnapshotArrayStruct()
@@ -625,7 +638,7 @@ def cmd_list_snapshots(args):
     print("Number of snapshots: %d Number of snapshots returned: %d"%(sa2res.nb_snapshots, sa2res.nb_snapshots_returned))
     print("Snapshot list in GMT (Coordinated UTC Time) and SMB format (100 nanosecond units needed for snapshot mounts):")
     for i, d in enumerate(sa2res.snapshot_array):
-        print("%d) GMT: %s\n   SMB3: %d"%(i, d, datetime_to_smb(d)))
+        print("%d) GMT:%s\n   SMB3:%d"%(i + 1, d.strftime(GMT_FORMAT), datetime_to_smb(d)))
 
 class SID:
     def __init__(self, buf, off=0):
