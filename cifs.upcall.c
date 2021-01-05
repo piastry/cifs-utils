@@ -36,6 +36,11 @@
 #elif defined(HAVE_KRB5_H)
 #include <krb5.h>
 #endif
+
+#include <gssapi/gssapi_generic.h>
+#include <gssapi/gssapi_krb5.h>
+#include <sys/utsname.h>
+
 #include <syslog.h>
 #include <dirent.h>
 #include <sys/types.h>
@@ -619,6 +624,8 @@ icfk_cleanup:
 	goto out;
 }
 
+#define CIFS_SERVICE_NAME "cifs"
+
 static int
 cifs_krb5_get_req(const char *host, krb5_ccache ccache,
 		  DATA_BLOB * mechtoken, DATA_BLOB * sess_key)
@@ -640,8 +647,8 @@ cifs_krb5_get_req(const char *host, krb5_ccache ccache,
 		return ret;
 	}
 
-	ret = krb5_sname_to_principal(context, host, "cifs", KRB5_NT_UNKNOWN,
-					&in_creds.server);
+	ret = krb5_sname_to_principal(context, host, CIFS_SERVICE_NAME,
+					KRB5_NT_UNKNOWN, &in_creds.server);
 	if (ret) {
 		syslog(LOG_DEBUG, "%s: unable to convert sname to princ (%s).",
 		       __func__, host);
@@ -740,6 +747,122 @@ out_free_principal:
 	return ret;
 }
 
+static void cifs_gss_display_status_1(char *m, OM_uint32 code, int type) {
+	OM_uint32 min_stat;
+	gss_buffer_desc msg;
+	OM_uint32 msg_ctx;
+
+	msg_ctx = 0;
+	while (1) {
+		(void) gss_display_status(&min_stat, code, type,
+				GSS_C_NULL_OID, &msg_ctx, &msg);
+		syslog(LOG_DEBUG, "GSS-API error %s: %s\n", m, (char *) msg.value);
+		(void) gss_release_buffer(&min_stat, &msg);
+
+		if (!msg_ctx)
+			break;
+	}
+}
+
+void cifs_gss_display_status(char *msg, OM_uint32 maj_stat, OM_uint32 min_stat) {
+	cifs_gss_display_status_1(msg, maj_stat, GSS_C_GSS_CODE);
+	cifs_gss_display_status_1(msg, min_stat, GSS_C_MECH_CODE);
+}
+
+static int
+cifs_gss_get_req(const char *host, DATA_BLOB *mechtoken, DATA_BLOB *sess_key)
+{
+	OM_uint32 maj_stat, min_stat;
+	gss_name_t target_name;
+	gss_ctx_id_t ctx = GSS_C_NO_CONTEXT;
+	gss_buffer_desc output_token;
+	gss_krb5_lucid_context_v1_t *lucid_ctx = NULL;
+	gss_krb5_lucid_key_t *key = NULL;
+
+	size_t service_name_len = sizeof(CIFS_SERVICE_NAME) + 1 /* @ */ +
+		strlen(host) + 1;
+	char *service_name = malloc(service_name_len);
+	if (!service_name) {
+		syslog(LOG_DEBUG, "out of memory allocating service name");
+		goto out;
+	}
+
+	snprintf(service_name, service_name_len, "%s@%s", CIFS_SERVICE_NAME,
+		 host);
+	gss_buffer_desc target_name_buf;
+	target_name_buf.value = service_name;
+	target_name_buf.length = service_name_len;
+
+	maj_stat = gss_import_name(&min_stat, &target_name_buf,
+			(gss_OID)gss_nt_service_name, &target_name);
+	free(service_name);
+	if (GSS_ERROR(maj_stat)) {
+		cifs_gss_display_status("gss_import_name", maj_stat, min_stat);
+		goto out;
+	}
+
+	maj_stat = gss_init_sec_context(&min_stat,
+			GSS_C_NO_CREDENTIAL, /* claimant_cred_handle */
+			&ctx,
+			target_name,
+			gss_mech_krb5, /* force krb5 */
+			0, /* flags */
+			0, /* time_req */
+			GSS_C_NO_CHANNEL_BINDINGS, /* input_chan_bindings */
+			GSS_C_NO_BUFFER,
+			NULL, /* actual mech type */
+			&output_token,
+			NULL, /* ret_flags */
+			NULL); /* time_rec */
+
+	if (maj_stat != GSS_S_COMPLETE &&
+		maj_stat != GSS_S_CONTINUE_NEEDED) {
+		cifs_gss_display_status("init_sec_context", maj_stat, min_stat);
+		goto out_release_target_name;
+	}
+
+	/* as luck would have it, GSS-API hands us the finished article */
+	*mechtoken = data_blob(output_token.value, output_token.length);
+
+	maj_stat = gss_krb5_export_lucid_sec_context(&min_stat, &ctx, 1,
+							(void **)&lucid_ctx);
+
+	if (GSS_ERROR(maj_stat)) {
+		cifs_gss_display_status("gss_krb5_export_lucid_sec_context",
+					maj_stat, min_stat);
+		goto out_free_sec_ctx;
+	}
+
+	switch (lucid_ctx->protocol) {
+	case 0:
+		key = &lucid_ctx->rfc1964_kd.ctx_key;
+		break;
+	case 1:
+		if (lucid_ctx->cfx_kd.have_acceptor_subkey) {
+			key = &lucid_ctx->cfx_kd.acceptor_subkey;
+		} else {
+			key = &lucid_ctx->cfx_kd.ctx_key;
+		}
+		break;
+	default:
+		syslog(LOG_DEBUG, "wrong lucid context protocol %d",
+		       lucid_ctx->protocol);
+		goto out_free_lucid_ctx;
+	}
+
+	*sess_key = data_blob(key->data, key->length);
+
+out_free_lucid_ctx:
+	(void) gss_krb5_free_lucid_sec_context(&min_stat, lucid_ctx);
+out_free_sec_ctx:
+	(void) gss_delete_sec_context(&min_stat, &ctx, GSS_C_NO_BUFFER);
+	(void) gss_release_buffer(&min_stat, &output_token);
+out_release_target_name:
+	(void) gss_release_name(&min_stat, &target_name);
+out:
+	return GSS_ERROR(maj_stat);
+}
+
 /*
  * Prepares AP-REQ data for mechToken and gets session key
  * Uses credentials from cache. It will not ask for password
@@ -765,28 +888,45 @@ handle_krb5_mech(const char *oid, const char *host, DATA_BLOB * secblob,
 		 DATA_BLOB * sess_key, krb5_ccache ccache)
 {
 	int retval;
-	DATA_BLOB tkt, tkt_wrapped;
+	DATA_BLOB tkt_wrapped;
 
 	syslog(LOG_DEBUG, "%s: getting service ticket for %s", __func__, host);
 
-	/* get a kerberos ticket for the service and extract the session key */
-	retval = cifs_krb5_get_req(host, ccache, &tkt, sess_key);
-	if (retval) {
-		syslog(LOG_DEBUG, "%s: failed to obtain service ticket (%d)",
-		       __func__, retval);
-		return retval;
+	/*
+	 * Fall back to gssapi if there's no credential cache or no TGT
+	 * so that gssproxy can maybe help out.
+	 */
+	if (!ccache) {
+		syslog(LOG_DEBUG, "%s: using GSS-API", __func__);
+		retval = cifs_gss_get_req(host, &tkt_wrapped, sess_key);
+		if (retval) {
+			syslog(LOG_DEBUG, "%s: failed to obtain service ticket via GSS (%d)",
+			__func__, retval);
+			return retval;
+		}
+	} else {
+		DATA_BLOB tkt;
+		syslog(LOG_DEBUG, "%s: using native krb5", __func__);
+
+		/* get a kerberos ticket for the service and extract the session key */
+		retval = cifs_krb5_get_req(host, ccache, &tkt, sess_key);
+		if (retval) {
+			syslog(LOG_DEBUG, "%s: failed to obtain service ticket (%d)",
+			       __func__, retval);
+			return retval;
+		}
+
+		syslog(LOG_DEBUG, "%s: obtained service ticket", __func__);
+
+		/* wrap that up in a nice GSS-API wrapping */
+		tkt_wrapped = spnego_gen_krb5_wrap(tkt, TOK_ID_KRB_AP_REQ);
+		data_blob_free(&tkt);
 	}
-
-	syslog(LOG_DEBUG, "%s: obtained service ticket", __func__);
-
-	/* wrap that up in a nice GSS-API wrapping */
-	tkt_wrapped = spnego_gen_krb5_wrap(tkt, TOK_ID_KRB_AP_REQ);
 
 	/* and wrap that in a shiny SPNEGO wrapper */
 	*secblob = gen_negTokenInit(oid, tkt_wrapped);
 
 	data_blob_free(&tkt_wrapped);
-	data_blob_free(&tkt);
 	return retval;
 }
 
@@ -1368,11 +1508,6 @@ int main(const int argc, char *const argv[])
 	/* Couldn't find credcache? Try to use keytab */
 	if (ccache == NULL && arg->username[0] != '\0')
 		ccache = init_cc_from_keytab(keytab_name, arg->username);
-
-	if (ccache == NULL) {
-		rc = 1;
-		goto out;
-	}
 
 	host = arg->hostname;
 

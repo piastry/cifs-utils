@@ -31,7 +31,7 @@ sbin_PROGRAMS =
 if CONFIG_CIFSUPCALL
 sbin_PROGRAMS += cifs.upcall
 cifs_upcall_SOURCES = cifs.upcall.c data_blob.c asn1.c spnego.c
-cifs_upcall_LDADD = -ltalloc -lkeyutils $(KRB5_LDADD) $(CAPNG_LDADD)
+cifs_upcall_LDADD = -ltalloc -lkeyutils -lgssapi_krb5 $(KRB5_LDADD) $(CAPNG_LDADD)
 rst_man_pages += cifs.upcall.8
 #
 # Fix the pathnames in manpages. To prevent @label@ being replaced by m4, we
