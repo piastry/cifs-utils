@@ -61,7 +61,8 @@ enum setcifsacl_actions {
 	ActSetAcl,
 	ActSetOwner,
 	ActSetGroup,
-	ActSetSacl
+	ActSetSacl,
+	ActAddReorder
 };
 
 static void *plugin_handle;
@@ -483,6 +484,87 @@ alloc_sec_desc(struct cifs_ntsd *pntsd, struct cifs_ntsd **npntsd,
 	return 0;
 }
 
+static struct cifs_ace **
+build_reorder_aces(struct cifs_ace **facesptr, int numfaces)
+{
+	struct cifs_ace *pace, **allowedacesptr, **deniedacesptr,
+			**allowedinhacesptr, **deniedinhacesptr, **reorderacesptr;
+	int i, numallowedaces, numdeniedaces,
+	    numallowedinhaces, numdeniedinhaces, numreorderaces;
+
+	allowedacesptr = calloc(numfaces, sizeof(struct cifs_aces *));
+	deniedacesptr = calloc(numfaces, sizeof(struct cifs_aces *));
+	allowedinhacesptr = calloc(numfaces, sizeof(struct cifs_aces *));
+	deniedinhacesptr = calloc(numfaces, sizeof(struct cifs_aces *));
+	reorderacesptr = calloc(numfaces, sizeof(struct cifs_aces *));
+
+	numallowedaces = 0;
+	numdeniedaces = 0;
+	numallowedinhaces = 0;
+	numdeniedinhaces = 0;
+	numreorderaces = 0;
+
+        for (i = 0; i < numfaces; i++) {
+		pace = facesptr[i];
+		if ((pace->type == ACCESS_DENIED) || (pace->type == ACCESS_DENIED_OBJECT)) {
+			if (!(pace->flags & INHERITED_ACE_FLAG)) {
+				deniedacesptr[numdeniedaces] = malloc(sizeof(struct cifs_ace));
+				memcpy(deniedacesptr[numdeniedaces], pace, sizeof(struct cifs_ace));
+				numdeniedaces++;
+			} else {
+				deniedinhacesptr[numdeniedinhaces] = malloc(sizeof(struct cifs_ace));
+				memcpy(deniedinhacesptr[numdeniedinhaces], pace, sizeof(struct cifs_ace));
+				numdeniedinhaces++;
+			}
+		} else if ((pace->type == ACCESS_ALLOWED) || (pace->type == ACCESS_ALLOWED_OBJECT)) {
+			if (!(pace->flags & INHERITED_ACE_FLAG)) {
+                                allowedacesptr[numallowedaces] = malloc(sizeof(struct cifs_ace));
+                                memcpy(allowedacesptr[numallowedaces], pace, sizeof(struct cifs_ace));
+                                numallowedaces++;
+                        } else {
+                                allowedinhacesptr[numallowedinhaces] = malloc(sizeof(struct cifs_ace));
+                                memcpy(allowedinhacesptr[numallowedinhaces], pace, sizeof(struct cifs_ace));
+                                numallowedinhaces++;
+                        }
+		}
+	}
+
+        for (i = 0; i < numdeniedaces; i++) {
+		reorderacesptr[numreorderaces] = malloc(sizeof(struct cifs_ace));
+		memcpy(reorderacesptr[numreorderaces], deniedacesptr[i], sizeof(struct cifs_ace));
+		numreorderaces++;
+		free(deniedacesptr[i]);
+	}
+
+	for (i = 0; i < numallowedaces; i++) {
+		reorderacesptr[numreorderaces] = malloc(sizeof(struct cifs_ace));
+		memcpy(reorderacesptr[numreorderaces], allowedacesptr[i], sizeof(struct cifs_ace));
+		numreorderaces++;
+		free(allowedacesptr[i]);
+	}
+
+	for (i = 0; i < numdeniedinhaces; i++) {
+		reorderacesptr[numreorderaces] = malloc(sizeof(struct cifs_ace));
+		memcpy(reorderacesptr[numreorderaces], deniedinhacesptr[i], sizeof(struct cifs_ace));
+		numreorderaces++;
+		free(deniedinhacesptr[i]);
+	}
+
+	for (i = 0; i < numallowedinhaces; i++) {
+		reorderacesptr[numreorderaces] = malloc(sizeof(struct cifs_ace));
+		memcpy(reorderacesptr[numreorderaces], allowedinhacesptr[i], sizeof(struct cifs_ace));
+		numreorderaces++;
+		free(allowedinhacesptr[i]);
+	}
+
+	free(deniedacesptr);
+	free(allowedacesptr);
+	free(deniedinhacesptr);
+	free(allowedinhacesptr);
+
+	return reorderacesptr;
+}
+
 static int
 ace_set(struct cifs_ntsd *pntsd, struct cifs_ntsd **npntsd, ssize_t *bufsize,
 		struct cifs_ace **cacesptr, int numcaces, ace_kinds ace_kind)
@@ -537,6 +619,35 @@ ace_add(struct cifs_ntsd *pntsd, struct cifs_ntsd **npntsd, ssize_t *bufsize,
 	*bufsize = copy_sec_desc(pntsd, *npntsd, numaces, acessize, ace_kind);
 
 	return 0;
+}
+
+static int
+ace_add_reorder(struct cifs_ntsd *pntsd, struct cifs_ntsd **npntsd, ssize_t *bufsize,
+		struct cifs_ace **facesptr, int numfaces,
+		struct cifs_ace **cacesptr, int numcaces,
+		ace_kinds ace_kind)
+{
+	struct cifs_ace **reorderacesptr, **totalacesptr;
+	int i, rc, numaces;
+
+	numaces = numfaces + numcaces;
+	totalacesptr = calloc(numaces, sizeof(struct cifs_aces *));
+
+	for (i = 0; i < numfaces; i++) {
+		totalacesptr[i] = facesptr[i];
+	}
+
+	for (i = numfaces; i < numaces; i++) {
+		totalacesptr[i] = cacesptr[i - numfaces];
+	}
+
+	reorderacesptr = build_reorder_aces(totalacesptr, numaces);
+	rc = ace_add(pntsd, npntsd, bufsize, reorderacesptr,
+			numaces, cacesptr, 0, ace_kind);
+
+	free(totalacesptr);
+	free(reorderacesptr);
+	return rc;
 }
 
 static int
@@ -1140,6 +1251,10 @@ setacl_action(struct cifs_ntsd *pntsd, struct cifs_ntsd **npntsd,
 		rc = ace_set(pntsd, npntsd, bufsize, cacesptr, numcaces,
 				ace_kind);
 		break;
+	case ActAddReorder:
+		rc = ace_add_reorder(pntsd, npntsd, bufsize, facesptr,
+				numfaces, cacesptr, numcaces, ace_kind);
+		break;
 	default:
 		fprintf(stderr, "%s: Invalid action: %d\n", __func__, maction);
 		break;
@@ -1164,6 +1279,10 @@ setcifsacl_usage(const char *prog)
 	fprintf(stderr, "\n\t-a	Add ACE(s), separated by a comma, to an ACL\n");
 	fprintf(stderr,
 	"\tsetcifsacl -a \"ACL:Administrator:ALLOWED/0x0/FULL\" <file_name>\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "\t-A	Add ACE(s) and reorder, separated by a comma, to an ACL\n");
+	fprintf(stderr,
+	"\tsetcifsacl -A \"ACL:Administrator:ALLOWED/0x0/FULL\" <file_name>\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr,
 	"\t-D	Delete ACE(s), separated by a comma, from an ACL\n");
@@ -1204,7 +1323,7 @@ main(const int argc, char *const argv[])
 	char *attrname = ATTRNAME_ACL;
 	ace_kinds ace_kind = ACE_KIND_DACL;
 
-	while ((c = getopt(argc, argv, "hvD:M:a:S:o:g:U")) != -1) {
+	while ((c = getopt(argc, argv, "hvD:M:a:A:S:o:g:U")) != -1) {
 		switch (c) {
 		case 'U':
 			ace_kind = ACE_KIND_SACL;
@@ -1222,6 +1341,10 @@ main(const int argc, char *const argv[])
 			maction = ActAdd;
 			ace_list = optarg;
 			break;
+		case 'A':
+                        maction = ActAddReorder;
+                        ace_list = optarg;
+                        break;
 		case 'S':
 			maction = ActSetAcl;
 			ace_list = optarg;
@@ -1374,7 +1497,7 @@ cifsacl:
 
 		numfaces = get_numfaces((struct cifs_ntsd *)attrval, attrlen,
 				&aclptr, ace_kind);
-		if (!numfaces && maction != ActAdd) {
+		if (!numfaces && (maction != ActAdd || maction != ActAddReorder)) {
 			/* if we are not adding aces */
 			fprintf(stderr, "%s: Empty DACL\n", __func__);
 			goto setcifsacl_facenum_ret;

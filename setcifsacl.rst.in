@@ -11,7 +11,7 @@ Userspace helper to alter components of a security descriptor for Common Interne
 SYNOPSIS
 ********
 
-  setcifsacl [-v|-U|-a|-D|-M|-S|-o|-g] "{one or more ACEs or a SID}" {file system object}
+  setcifsacl [-v|-U|-a|-A|-D|-M|-S|-o|-g] "{one or more ACEs or a SID}" {file system object}
 
 ***********
 DESCRIPTION
@@ -45,6 +45,12 @@ OPTIONS
 -a
   Add one or more ACEs to an ACL of a security descriptor.  An ACE is
   added even if the same ACE exists in the ACL.
+
+-A
+  Add one or more ACEs to the ACL of a security descriptor, while maintaining
+  the preferred order of the ACEs.
+  The preferred order of ACEs are described in the following documentation:
+  https://docs.microsoft.com/en-us/windows/win32/secauthz/order-of-aces-in-a-dacl
 
 -D
  Delete one or more ACEs from an ACL of a security descriptor.  Entire
@@ -99,6 +105,18 @@ Add an ACE
   setcifsacl -a "ACL:CIFSTESTDOM\\user1:ALLOWED/OI|CI|NI/D" <file_name>
 
   setcifsacl -U -a "ACL:CIFSTESTDOM\\user1:AUDIT/SA/D" <file_name>
+
+Add an ACE and reorder ACL
+==========================
+
+  setcifsacl -A "ACL:CIFSTESTDOM\user3:ALLOWED/OI/FULL" <file_name>
+  setcifsacl -A "ACL:CIFSTESTDOM\user2:DENIED/0x1/D" <file_name>
+  setcifsacl -A "ACL:CIFSTESTDOM\user1:ALLOWED/OI|CI|NI/D" <file_name>
+
+  After setting above mentioned ACEs, below is output of getcifsacl:
+  ACL:CIFSTESTDOM\user2:DENIED/0x1/D
+  ACL:CIFSTESTDOM\user3:ALLOWED/OI/FULL
+  ACL:CIFSTESTDOM\user1:ALLOWED/OI|CI|NI/D
 
 Delete an ACE
 =============
