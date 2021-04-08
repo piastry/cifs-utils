@@ -253,6 +253,10 @@ def main():
     sap.add_argument("file")
     sap.set_defaults(func=cmd_filestandardinfo)
 
+    sap = subp.add_parser("filestreaminfo", help="Prints FileStreamInfo for a cifs file")
+    sap.add_argument("file")
+    sap.set_defaults(func=cmd_filestreaminfo)
+
     sap = subp.add_parser("fsctl-getobjid", help="Prints the objectid of the file and GUID of the underlying volume.")
     sap.add_argument("file")
     sap.set_defaults(func=cmd_fsctl_getobjid)
@@ -753,6 +757,43 @@ def cmd_secdesc(args):
               print(ace)
               off_dacl += ace.size
 
+def cmd_filestreaminfo(args):
+    qi = QueryInfoStruct(info_type=0x1, file_info_class=22, input_buffer_length=INPUT_BUFFER_LENGTH)
+    try:
+        fd = os.open(args.file, os.O_RDONLY)
+        info = os.fstat(fd)
+        buf = qi.ioctl(fd)
+    except Exception as e:
+        print("syscall failed: %s"%e)
+        return False
+
+    print_filestreaminfo(buf)
+
+def print_filestreaminfo(buf):
+    offset = 0
+
+    while offset < len(buf):
+
+        next_offset = struct.unpack_from('<I', buf, offset + 0)[0]
+        name_length = struct.unpack_from('<I', buf, offset + 4)[0]
+        if (name_length > 0):
+            stream_size = struct.unpack_from('<q', buf, offset + 8)[0]
+            stream_alloc_size = struct.unpack_from('<q', buf, offset + 16)[0]
+            stream_utf16le_name = struct.unpack_from('< %ss'% name_length, buf, offset + 24)[0]
+            stream_name = stream_utf16le_name.decode("utf-16le")
+            if (offset > 0):
+                print()
+            if (stream_name=="::$DATA"):
+                print("Name: %s"% stream_name)
+            else:
+                print("Name: %s"% stream_name[stream_name.find(":") + 1 : stream_name.rfind(':$DATA')])
+            print("Size: %d bytes"% stream_size)
+            print("Allocation size: %d bytes "% stream_alloc_size)
+
+        if (next_offset == 0):
+            break
+
+        offset+=next_offset
 
 class KeyDebugInfoStruct:
     def __init__(self):
