@@ -1996,9 +1996,9 @@ acquire_mountpoint(char **mountpointp)
 	 */
 	realuid = getuid();
 	if (realuid == 0) {
-		dacrc = toggle_dac_capability(0, 1);
-		if (dacrc)
-			return dacrc;
+		rc = toggle_dac_capability(0, 1);
+		if (rc)
+			goto out;
 	} else {
 		oldfsuid = setfsuid(realuid);
 		oldfsgid = setfsgid(getgid());
@@ -2019,7 +2019,6 @@ acquire_mountpoint(char **mountpointp)
 		rc = EX_SYSERR;
 	}
 
-	*mountpointp = mountpoint;
 restore_privs:
 	if (realuid == 0) {
 		dacrc = toggle_dac_capability(0, 0);
@@ -2030,9 +2029,13 @@ restore_privs:
 		gid_t __attribute__((unused)) gignore = setfsgid(oldfsgid);
 	}
 
-	if (rc)
+out:
+	if (rc) {
 		free(mountpoint);
+		mountpoint = NULL;
+	}
 
+	*mountpointp = mountpoint;
 	return rc;
 }
 
