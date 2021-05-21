@@ -34,6 +34,7 @@ VERBOSE = False
 CIFS_QUERY_INFO          = 0xc018cf07
 CIFS_ENUMERATE_SNAPSHOTS = 0x800ccf06
 CIFS_DUMP_KEY            = 0xc03acf08
+CIFS_DUMP_FULL_KEY       = 0xc011cf0a
 
 # large enough input buffer length
 INPUT_BUFFER_LENGTH = 16384
@@ -192,9 +193,11 @@ ACE_FLAGS = [
 ]
 
 CIPHER_TYPES = [
-    (0x00, "SMB3.0 CCM encryption"),
-    (0x01, "CCM encryption"),
-    (0x02, "GCM encryption"),
+    (0x00, "AES-128-CCM"),
+    (0x01, "AES-128-CCM"),
+    (0x02, "AES-128-GCM"),
+    (0x03, "AES-256-CCM"),
+    (0x04, "AES-256-GCM"),
 ]
 
 def main():
@@ -799,35 +802,79 @@ class KeyDebugInfoStruct:
     def __init__(self):
         self.suid = bytearray()
         self.cipher = 0
-        self.auth_key = bytearray()
+        self.session_key = bytearray()
         self.enc_key = bytearray()
         self.dec_key = bytearray()
 
     def ioctl(self, fd):
         buf = bytearray()
         buf.extend(struct.pack("= 8s H 16s 16s 16s", self.suid, self.cipher,
-                               self.auth_key, self.enc_key, self.dec_key))
+                               self.session_key, self.enc_key, self.dec_key))
         fcntl.ioctl(fd, CIFS_DUMP_KEY, buf, True)
-        (self.suid, self.cipher, self.auth_key,
+        (self.suid, self.cipher, self.session_key,
          self.enc_key, self.dec_key) = struct.unpack_from('= 8s H 16s 16s 16s', buf, 0)
+
+class FullKeyDebugInfoStruct:
+    def __init__(self):
+        # lets pick something large to be future proof
+        # 17 + 3*32 would be strict minimum as of linux 5.13
+        self.in_size = 1024
+        self.suid = bytearray()
+        self.cipher = 0
+        self.session_key_len = 0
+        self.server_in_key_len = 0
+        self.server_out_key_len = 0
+
+    def ioctl(self, fd):
+        fmt = "= I 8s H B B B"
+        size = struct.calcsize(fmt)
+        buf = bytearray()
+        buf.extend(struct.pack(fmt, self.in_size, self.suid, self.cipher,
+                               self.session_key_len, self.server_in_key_len, self.server_out_key_len))
+        buf.extend(bytearray(self.in_size-size))
+        fcntl.ioctl(fd, CIFS_DUMP_FULL_KEY, buf, True)
+        (self.in_size, self.suid, self.cipher,
+         self.session_key_len, self.server_in_key_len,
+         self.server_out_key_len) = struct.unpack_from(fmt, buf, 0)
+
+        end = size
+        self.session_key = buf[end:end+self.session_key_len]
+        end += self.session_key_len
+        self.server_in_key = buf[end:end+self.server_in_key_len]
+        end += self.server_in_key_len
+        self.server_out_key = buf[end:end+self.server_out_key_len]
 
 def bytes_to_hex(buf):
     return " ".join(["%02x"%x for x in buf])
 
 def cmd_keys(args):
-    kd = KeyDebugInfoStruct()
+    fd = os.open(args.file, os.O_RDONLY)
+    kd = FullKeyDebugInfoStruct()
+
     try:
-        fd = os.open(args.file, os.O_RDONLY)
+        # try new call first
         kd.ioctl(fd)
     except Exception as e:
-        print("syscall failed: %s"%e)
-        return False
-
-    print("Session Id: %s"%bytes_to_hex(kd.suid))
-    print("Cipher: %s"%type_to_str(kd.cipher, CIPHER_TYPES, verbose=True))
-    print("Session Key: %s"%bytes_to_hex(kd.auth_key))
-    print("Encryption key: %s"%bytes_to_hex(kd.enc_key))
-    print("Decryption key: %s"%bytes_to_hex(kd.dec_key))
+        # new failed, try old call
+        kd = KeyDebugInfoStruct()
+        try:
+            kd.ioctl(fd)
+        except Exception as e:
+            # both new and old call failed
+            print("syscall failed: %s"%e)
+            return False
+        print("Session Id: %s"%bytes_to_hex(kd.suid))
+        print("Cipher: %s"%type_to_str(kd.cipher, CIPHER_TYPES, verbose=True))
+        print("Session Key: %s"%bytes_to_hex(kd.session_key))
+        print("Encryption key: %s"%bytes_to_hex(kd.enc_key))
+        print("Decryption key: %s"%bytes_to_hex(kd.dec_key))
+    else:
+        # no exception, new call succeeded
+        print("Session Id: %s"%bytes_to_hex(kd.suid))
+        print("Cipher: %s"%type_to_str(kd.cipher, CIPHER_TYPES, verbose=True))
+        print("Session Key: %s"%bytes_to_hex(kd.session_key))
+        print("ServerIn  Key: %s"%bytes_to_hex(kd.server_in_key))
+        print("ServerOut key: %s"%bytes_to_hex(kd.server_out_key))
 
 if __name__ == '__main__':
     main()
