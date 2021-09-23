@@ -1342,9 +1342,9 @@ main(const int argc, char *const argv[])
 			ace_list = optarg;
 			break;
 		case 'A':
-                        maction = ActAddReorder;
-                        ace_list = optarg;
-                        break;
+			maction = ActAddReorder;
+			ace_list = optarg;
+			break;
 		case 'S':
 			maction = ActSetAcl;
 			ace_list = optarg;
