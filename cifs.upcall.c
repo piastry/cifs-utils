@@ -69,6 +69,10 @@
 #include <cap-ng.h>
 #endif
 
+#ifndef discard_const
+#define discard_const(ptr) ((void *)((intptr_t)(ptr)))
+#endif
+
 static krb5_context	context;
 static const char	*prog = "cifs.upcall";
 
@@ -805,7 +809,7 @@ cifs_gss_get_req(const char *host, DATA_BLOB *mechtoken, DATA_BLOB *sess_key)
 			GSS_C_NO_CREDENTIAL, /* claimant_cred_handle */
 			&ctx,
 			target_name,
-			gss_mech_krb5, /* force krb5 */
+			discard_const(gss_mech_krb5), /* force krb5 */
 			0, /* flags */
 			0, /* time_req */
 			GSS_C_NO_CHANNEL_BINDINGS, /* input_chan_bindings */
