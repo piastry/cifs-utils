@@ -91,6 +91,15 @@ OPTIONS
 --version|-v
   Print version number and exit.
 
+*********************
+ENVIRONMENT VARIABLES
+*********************
+
+GSS_USE_PROXY="yes"
+  Enable usage of gssproxy for credential retrieval. This includes keytab
+  based client initiation as well as (Resource Based) Constrained Delegation.
+  See gssproxy-mech(8).
+
 ************************
 CONFIGURATION FOR KEYCTL
 ************************
