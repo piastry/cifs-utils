@@ -798,7 +798,7 @@ cifs_gss_get_req(const char *host, DATA_BLOB *mechtoken, DATA_BLOB *sess_key)
 	target_name_buf.length = service_name_len;
 
 	maj_stat = gss_import_name(&min_stat, &target_name_buf,
-			(gss_OID)gss_nt_service_name, &target_name);
+			GSS_C_NT_HOSTBASED_SERVICE, &target_name);
 	free(service_name);
 	if (GSS_ERROR(maj_stat)) {
 		cifs_gss_display_status("gss_import_name", maj_stat, min_stat);
