@@ -1497,7 +1497,7 @@ cifsacl:
 
 		numfaces = get_numfaces((struct cifs_ntsd *)attrval, attrlen,
 				&aclptr, ace_kind);
-		if (!numfaces && (maction != ActAdd || maction != ActAddReorder)) {
+		if (!numfaces && (maction != ActAdd && maction != ActAddReorder)) {
 			/* if we are not adding aces */
 			fprintf(stderr, "%s: Empty DACL\n", __func__);
 			goto setcifsacl_facenum_ret;
