@@ -172,12 +172,14 @@ cifs_idmap(const key_serial_t key, const char *key_descr)
 
 	sidstr = strget(key_descr, "oi:");
 	if (sidstr) {
-		rc = str_to_uint(sidstr, (unsigned int *)&cuxid.id.uid);
+		unsigned int _uid = 0;
+		rc = str_to_uint(sidstr, (unsigned int *)&_uid);
 		if (rc) {
 			syslog(LOG_ERR, "Unable to convert %s to uid: %s",
 				sidstr, strerror(rc));
 			goto cifs_idmap_ret;
 		}
+		cuxid.id.uid = _uid;
 		cuxid.type = CIFS_UXID_TYPE_UID;
 
 		syslog(LOG_DEBUG, "SID: %s, uid: %u", sidstr, cuxid.id.uid);
@@ -198,12 +200,14 @@ cifs_idmap(const key_serial_t key, const char *key_descr)
 
 	sidstr = strget(key_descr, "gi:");
 	if (sidstr) {
-		rc = str_to_uint(sidstr, (unsigned int *)&cuxid.id.gid);
+		unsigned int _gid = 0;
+		rc = str_to_uint(sidstr, (unsigned int *)&_gid);
 		if (rc) {
 			syslog(LOG_ERR, "Unable to convert %s to gid: %s",
 				sidstr, strerror(rc));
 			goto cifs_idmap_ret;
 		}
+		cuxid.id.gid = _gid;
 		cuxid.type = CIFS_UXID_TYPE_GID;
 
 		syslog(LOG_DEBUG, "SID: %s, gid: %u", sidstr, cuxid.id.gid);
