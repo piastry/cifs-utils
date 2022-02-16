@@ -1146,7 +1146,6 @@ int main(const int argc, char *const argv[])
 	DATA_BLOB sess_key = data_blob_null;
 	key_serial_t key = 0;
 	size_t datalen;
-	unsigned int have;
 	long rc = 1;
 	int c;
 	bool try_dns = false, legacy_uid = false , env_probe = true;
@@ -1254,7 +1253,7 @@ int main(const int argc, char *const argv[])
 
 	if ((arg->have & DKD_MUSTHAVE_SET) != DKD_MUSTHAVE_SET) {
 		syslog(LOG_ERR, "unable to get necessary params from key "
-		       "description (0x%x)", have);
+		       "description (0x%x)", arg->have);
 		rc = 1;
 		goto out;
 	}
