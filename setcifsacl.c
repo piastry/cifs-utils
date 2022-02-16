@@ -1111,6 +1111,7 @@ build_cmdline_aces(char **arrptr, int numcaces, ace_kinds ace_kind)
 	int i;
 	char *acesid, *acetype, *aceflag, *acemask;
 	struct cifs_ace **cacesptr;
+	uint32_t access_req = 0;
 
 	cacesptr = calloc(numcaces, sizeof(struct cifs_ace *));
 	if (!cacesptr) {
@@ -1156,11 +1157,13 @@ build_cmdline_aces(char **arrptr, int numcaces, ace_kinds ace_kind)
 			goto build_cmdline_aces_ret;
 		}
 
-		if (verify_ace_mask(acemask, &cacesptr[i]->access_req)) {
+		if (verify_ace_mask(acemask, &access_req)) {
 			fprintf(stderr, "%s: Invalid ACE mask: %s\n",
 				__func__, arrptr[i]);
 			goto build_cmdline_aces_ret;
 		}
+
+		cacesptr[i]->access_req = access_req;
 
 		cacesptr[i]->size = htole16(1 + 1 + 2 + 4 + 1 + 1 + 6 +
 					    cacesptr[i]->sid.num_subauth * 4);
