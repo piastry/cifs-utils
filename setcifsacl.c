@@ -492,11 +492,11 @@ build_reorder_aces(struct cifs_ace **facesptr, int numfaces)
 	int i, numallowedaces, numdeniedaces,
 	    numallowedinhaces, numdeniedinhaces, numreorderaces;
 
-	allowedacesptr = calloc(numfaces, sizeof(struct cifs_aces *));
-	deniedacesptr = calloc(numfaces, sizeof(struct cifs_aces *));
-	allowedinhacesptr = calloc(numfaces, sizeof(struct cifs_aces *));
-	deniedinhacesptr = calloc(numfaces, sizeof(struct cifs_aces *));
-	reorderacesptr = calloc(numfaces, sizeof(struct cifs_aces *));
+	allowedacesptr = calloc(numfaces, sizeof(struct cifs_ace *));
+	deniedacesptr = calloc(numfaces, sizeof(struct cifs_ace *));
+	allowedinhacesptr = calloc(numfaces, sizeof(struct cifs_ace *));
+	deniedinhacesptr = calloc(numfaces, sizeof(struct cifs_ace *));
+	reorderacesptr = calloc(numfaces, sizeof(struct cifs_ace *));
 
 	numallowedaces = 0;
 	numdeniedaces = 0;
@@ -631,7 +631,7 @@ ace_add_reorder(struct cifs_ntsd *pntsd, struct cifs_ntsd **npntsd, ssize_t *buf
 	int i, rc, numaces;
 
 	numaces = numfaces + numcaces;
-	totalacesptr = calloc(numaces, sizeof(struct cifs_aces *));
+	totalacesptr = calloc(numaces, sizeof(struct cifs_ace *));
 
 	for (i = 0; i < numfaces; i++) {
 		totalacesptr[i] = facesptr[i];
@@ -780,7 +780,7 @@ build_fetched_aces(char *aclptr, int numfaces)
 	char *acl_base;
 	struct cifs_ace *pace, **facesptr;
 
-	facesptr = calloc(numfaces, sizeof(struct cifs_aces *));
+	facesptr = calloc(numfaces, sizeof(struct cifs_ace *));
 	if (!facesptr) {
 		fprintf(stderr, "%s: Error %d allocating ACE array",
 				__func__, errno);
@@ -1112,7 +1112,7 @@ build_cmdline_aces(char **arrptr, int numcaces, ace_kinds ace_kind)
 	char *acesid, *acetype, *aceflag, *acemask;
 	struct cifs_ace **cacesptr;
 
-	cacesptr = calloc(numcaces, sizeof(struct cifs_aces *));
+	cacesptr = calloc(numcaces, sizeof(struct cifs_ace *));
 	if (!cacesptr) {
 		fprintf(stderr, "%s: Error %d allocating ACE array", __func__,
 			errno);
