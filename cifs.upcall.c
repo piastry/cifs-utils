@@ -190,6 +190,14 @@ static void krb5_free_unparsed_name(krb5_context context, char *val)
 }
 #endif
 
+#if !defined(HAVE_KRB5_FREE_STRING)	/* Heimdal */
+static void krb5_free_string(krb5_context context, char *val)
+{
+	(void)context;
+	krb5_xfree(val);
+}
+#endif
+
 #if !defined(HAVE_KRB5_AUTH_CON_GETSENDSUBKEY)	/* Heimdal */
 static krb5_error_code
 krb5_auth_con_getsendsubkey(krb5_context context,

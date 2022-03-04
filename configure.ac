@@ -256,6 +256,11 @@ if test $enable_cifsupcall != "no"; then
 	AC_CHECK_FUNCS([krb5_auth_con_setaddrs krb5_auth_con_set_req_cksumtype])
 fi
 
+# determine how to free a string allocated by a krb5 function
+if test $enable_cifsupcall != "no"; then
+	AC_CHECK_FUNCS([krb5_free_string])
+fi
+
 if test $enable_systemd != "no"; then
 	AC_DEFINE(ENABLE_SYSTEMD, 1, [Enable systemd specific behavior for mount.cifs])
 fi
