@@ -926,9 +926,10 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 			if (!value || !*value) {
 				fprintf(stderr,
 					"target ip address argument missing\n");
-			} else if (strnlen(value, MAX_ADDRESS_LEN) <=
+			} else if (strnlen(value, MAX_ADDRESS_LEN) <
 				MAX_ADDRESS_LEN) {
-				strcpy(parsed_info->addrlist, value);
+				strlcpy(parsed_info->addrlist, value,
+					MAX_ADDRESS_LEN);
 				if (parsed_info->verboseflag)
 					fprintf(stderr,
 						"ip address %s override specified\n",
