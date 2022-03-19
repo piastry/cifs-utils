@@ -628,17 +628,13 @@ static int open_cred_file(char *file_name,
 				goto return_i;
 			break;
 		case CRED_DOM:
-			if (parsed_info->verboseflag)
-				fprintf(stderr, "domain=%s\n",
-					temp_val);
 			strlcpy(parsed_info->domain, temp_val,
 				sizeof(parsed_info->domain));
 			break;
 		case CRED_UNPARSEABLE:
 			if (parsed_info->verboseflag)
 				fprintf(stderr, "Credential formatted "
-					"incorrectly: %s\n",
-					temp_val ? temp_val : "(null)");
+					"incorrectly\n");
 			break;
 		}
 	}
