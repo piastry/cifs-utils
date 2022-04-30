@@ -37,7 +37,6 @@
 #include <krb5.h>
 #endif
 
-#include <gssapi/gssapi_generic.h>
 #include <gssapi/gssapi_krb5.h>
 #include <sys/utsname.h>
 

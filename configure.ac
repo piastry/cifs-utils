@@ -208,6 +208,12 @@ if test $enable_cifsupcall != "no"; then
 			[ KRB5_LDADD='-lkrb5' ],
 			AC_MSG_ERROR([no functioning krb5 library found!]))
 	AC_SUBST(KRB5_LDADD)
+	save_LIBS=$LIBS
+	AC_SEARCH_LIBS([gss_init_sec_context], [gssapi_krb5 gssapi],
+			[ GSSAPI_LDADD="$ac_cv_search_gss_init_sec_context" ],
+			AC_MSG_ERROR([no functioning gssapi library found!]))
+	LIBS=$save_LIBS
+	AC_SUBST(GSSAPI_LDADD)
 fi
 
 # checks for wbclient.h and libwbclient.so library
