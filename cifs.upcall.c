@@ -795,6 +795,7 @@ cifs_gss_get_req(const char *host, DATA_BLOB *mechtoken, DATA_BLOB *sess_key)
 	char *service_name = malloc(service_name_len);
 	if (!service_name) {
 		syslog(LOG_DEBUG, "out of memory allocating service name");
+		maj_stat = GSS_S_FAILURE;
 		goto out;
 	}
 
