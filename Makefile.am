@@ -1,8 +1,8 @@
 AM_CFLAGS = -Wall -Wextra -D_FORTIFY_SOURCE=2 $(PIE_CFLAGS) $(RELRO_CFLAGS)
 ACLOCAL_AMFLAGS = -I aclocal
 
-root_sbindir = $(ROOTSBINDIR)
-root_sbin_PROGRAMS = mount.cifs
+root_exec_sbindir = $(ROOTSBINDIR)
+root_exec_sbin_PROGRAMS = mount.cifs
 mount_cifs_SOURCES = mount.cifs.c mtab.c resolve_host.c util.c
 mount_cifs_LDADD = $(LIBCAP) $(CAPNG_LDADD) $(RT_LDADD)
 include_HEADERS = cifsidmap.h
