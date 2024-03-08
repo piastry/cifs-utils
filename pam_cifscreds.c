@@ -338,7 +338,7 @@ static int cifscreds_pam_update(pam_handle_t *ph, const char *user, const char *
 		key_serial_t key = key_add(currentaddress, user, password, keytype);
 		if (key <= 0) {
 			pam_syslog(ph, LOG_ERR, "error: Update credential key for %s: %s",
-				currentaddress, strerror(errno));
+				   (currentaddress ?: "(null)"), strerror(errno));
 		}
 	}
 
