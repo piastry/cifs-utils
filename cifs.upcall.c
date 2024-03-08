@@ -498,10 +498,11 @@ retry:
 		/* We read to the end of the buffer. Double and try again */
 		syslog(LOG_DEBUG, "%s: read to end of buffer (%zu bytes)\n",
 					__func__, bufsize);
-		free(buf);
-		bufsize *= 2;
 		if (lseek(fd, 0, SEEK_SET) < 0)
 			goto out_close;
+		free(buf);
+		buf = NULL;
+		bufsize *= 2;
 		goto retry;
 	}
 
