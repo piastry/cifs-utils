@@ -321,11 +321,12 @@ soft
 noacl
   Do not allow POSIX ACL operations even if server would support them.
 
-  The CIFS client can get and set POSIX ACLs (getfacl, setfacl) to Samba
-  servers version 3.0.10 and later. Setting POSIX ACLs requires enabling
-  both ``CIFS_XATTR`` and then ``CIFS_POSIX`` support in the CIFS
-  configuration options when building the cifs module. POSIX ACL support
-  can be disabled on a per mount basis by specifying ``noacl`` on mount.
+  The CIFS client can get and set POSIX ACLs (getfacl, setfacl) to
+  Samba servers version 3.0.10 and later. Setting POSIX ACLs requires
+  enabling both ``CONFIG_CIFS_XATTR`` and then ``CONFIG_CIFS_POSIX``
+  support in the CIFS configuration options when building the cifs
+  module. POSIX ACL support can be disabled on a per mount basis by
+  specifying ``noacl`` on mount.
 
 cifsacl
   This option is used to map CIFS/NTFS ACLs to/from Linux permission
@@ -762,8 +763,19 @@ bits, and POSIX ACL as user authentication model. This is the most
 common authentication model for CIFS servers and is the one used by
 Windows.
 
-Support for this requires both CIFS_XATTR and CIFS_ACL support in the
-CIFS configuration options when building the cifs module.
+Support for this requires cifs kernel module built with both
+``CONFIG_CIFS_XATTR`` and ``CONFIG_CIFS_ACL`` options enabled.  Since
+Linux 5.3, ``CONFIG_CIFS_ACL`` option no longer exists as CIFS/NTFS
+ACL support is always built into cifs kernel module.
+
+Most distribution kernels will already have those options enabled by
+default, but you can still check if they are enabled with::
+
+  cat /lib/modules/$(uname -r)/build/.config
+
+Alternatively, if kernel is configured with ``CONFIG_IKCONFIG_PROC``::
+
+  zcat /proc/config.gz
 
 A CIFS/NTFS ACL is mapped to file permission bits using an algorithm
 specified in the following Microsoft TechNet document:
