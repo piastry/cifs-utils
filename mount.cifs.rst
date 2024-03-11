@@ -773,10 +773,10 @@ specified in the following Microsoft TechNet document:
 In order to map SIDs to/from UIDs and GIDs, the following is required:
 
 - a kernel upcall to the ``cifs.idmap`` utility set up via request-key.conf(5)
-- winbind support configured via nsswitch.conf(5) and smb.conf(5)
+- winbind or sssd support configured via nsswitch.conf(5)
 
-Please refer to the respective manpages of cifs.idmap(8) and
-winbindd(8) for more information.
+Please refer to the respective manpages of cifs.idmap(8), winbindd(8)
+and sssd(8) for more information.
 
 Security descriptors for a file object can be retrieved and set
 directly using extended attribute named ``system.cifs_acl``. The
@@ -792,10 +792,10 @@ Some of the things to consider while using this mount option:
 - The mapping between a CIFS/NTFS ACL and POSIX file permission bits
   is imperfect and some ACL information may be lost in the
   translation.
-- If either upcall to cifs.idmap is not setup correctly or winbind is
-  not configured and running, ID mapping will fail. In that case uid
-  and gid will default to either to those values of the share or to
-  the values of uid and/or gid mount options if specified.
+- If either upcall to cifs.idmap is not setup correctly or winbind or
+  sssd is not configured and running, ID mapping will fail. In that
+  case uid and gid will default to either to those values of the share
+  or to the values of uid and/or gid mount options if specified.
 
 **********************************
 ACCESSING FILES WITH BACKUP INTENT
