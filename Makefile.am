@@ -3,8 +3,8 @@ ACLOCAL_AMFLAGS = -I aclocal
 
 root_exec_sbindir = $(ROOTSBINDIR)
 root_exec_sbin_PROGRAMS = mount.cifs
-mount_cifs_SOURCES = mount.cifs.c mtab.c resolve_host.c util.c
-mount_cifs_LDADD = $(LIBCAP) $(CAPNG_LDADD) $(RT_LDADD)
+mount_cifs_SOURCES = mount.cifs.c mtab.c $(resolve_hosts_SOURCES) util.c
+mount_cifs_LDADD = $(LIBCAP) $(CAPNG_LDADD) $(RT_LDADD) $(resolve_hosts_LDADD)
 include_HEADERS = cifsidmap.h
 rst_man_pages = mount.cifs.8
 
@@ -28,6 +28,9 @@ bin_PROGRAMS =
 bin_SCRIPTS =
 sbin_PROGRAMS =
 
+resolve_hosts_SOURCES = data_blob.c asn1.c cldap_ping.c resolve_host.c
+resolve_hosts_LDADD = -ltalloc -lresolv
+
 if CONFIG_CIFSUPCALL
 sbin_PROGRAMS += cifs.upcall
 cifs_upcall_SOURCES = cifs.upcall.c data_blob.c asn1.c spnego.c
@@ -43,8 +46,8 @@ endif
 
 if CONFIG_CIFSCREDS
 bin_PROGRAMS += cifscreds
-cifscreds_SOURCES = cifscreds.c cifskey.c resolve_host.c util.c
-cifscreds_LDADD = -lkeyutils
+cifscreds_SOURCES = cifscreds.c cifskey.c $(resolve_hosts_SOURCES) util.c
+cifscreds_LDADD = -lkeyutils $(resolve_hosts_LDADD)
 
 rst_man_pages += cifscreds.1
 
@@ -105,8 +108,8 @@ endif
 if CONFIG_PAM
 pam_PROGRAMS = pam_cifscreds.so
 rst_man_pages += pam_cifscreds.8
-pam_cifscreds.so: pam_cifscreds.c cifskey.c resolve_host.c util.c
-	$(CC) $(DEFS) $(CFLAGS) $(AM_CFLAGS) $(LDFLAGS) -shared -fpic -o $@ $+ -lpam -lkeyutils
+pam_cifscreds.so: pam_cifscreds.c cifskey.c $(resolve_hosts_SOURCES) util.c
+	$(CC) $(DEFS) $(CFLAGS) $(AM_CFLAGS) $(LDFLAGS) -shared -fpic -o $@ $+ -lpam -lkeyutils $(resolve_hosts_LDADD)
 
 endif
 

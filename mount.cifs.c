@@ -1889,8 +1889,11 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 	if (rc)
 		goto assemble_exit;
 
-	if (parsed_info->addrlist[0] == '\0')
+	if (parsed_info->addrlist[0] == '\0') {
 		rc = resolve_host(parsed_info->host, parsed_info->addrlist);
+		if (rc == 0 && parsed_info->verboseflag)
+			fprintf(stderr, "Host \"%s\" resolved to the following IP addresses: %s\n", parsed_info->host, parsed_info->addrlist);
+	}
 
 	switch (rc) {
 	case EX_USAGE:

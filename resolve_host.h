@@ -26,8 +26,10 @@
 /* currently maximum length of IPv6 address string */
 #define MAX_ADDRESS_LEN INET6_ADDRSTRLEN
 
-/* limit list of addresses to 16 max-size addrs */
-#define MAX_ADDR_LIST_LEN ((MAX_ADDRESS_LEN + 1) * 16)
+#define MAX_ADDRESSES 16
+
+/* limit list of addresses to MAX_ADDRESSES max-size addrs */
+#define MAX_ADDR_LIST_LEN ((MAX_ADDRESS_LEN + 1) * MAX_ADDRESSES)
 
 extern int resolve_host(const char *host, char *addrstr);
 
