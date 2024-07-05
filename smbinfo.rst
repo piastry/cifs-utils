@@ -96,6 +96,8 @@ COMMAND
 the SMB3 traffic of this mount can be decryped e.g. via wireshark
 (requires root).
 
+`gettconinfo`: Prints both the TCON Id and Session Id for a cifs file.
+
 *****
 NOTES
 *****

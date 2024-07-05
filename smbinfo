@@ -35,6 +35,7 @@ CIFS_QUERY_INFO          = 0xc018cf07
 CIFS_ENUMERATE_SNAPSHOTS = 0x800ccf06
 CIFS_DUMP_KEY            = 0xc03acf08
 CIFS_DUMP_FULL_KEY       = 0xc011cf0a
+CIFS_GET_TCON_INFO       = 0x800ccf0c
 
 # large enough input buffer length
 INPUT_BUFFER_LENGTH = 16384
@@ -288,6 +289,10 @@ def main():
     sap = subp.add_parser("keys", help="Prints the decryption information needed to view encrypted network traces")
     sap.add_argument("file")
     sap.set_defaults(func=cmd_keys)
+
+    sap = subp.add_parser("gettconinfo", help="Prints TCON Id and Session Id for a cifs file")
+    sap.add_argument("file")
+    sap.set_defaults(func=cmd_gettconinfo)
 
     # parse arguments
     args = ap.parse_args()
@@ -875,6 +880,30 @@ def cmd_keys(args):
         print("Session Key: %s"%bytes_to_hex(kd.session_key))
         print("ServerIn  Key: %s"%bytes_to_hex(kd.server_in_key))
         print("ServerOut key: %s"%bytes_to_hex(kd.server_out_key))
+
+class SmbMntTconInfoStruct:
+    def __init__(self):
+        self.tid = 0
+        self.session_id = 0
+
+    def ioctl(self, fd):
+        buf = bytearray()
+        buf.extend(struct.pack("=IQ", self.tid, self.session_id))
+        fcntl.ioctl(fd, CIFS_GET_TCON_INFO, buf, True)
+        (self.tid, self.session_id) = struct.unpack_from('=IQ', buf, 0)
+
+def cmd_gettconinfo(args):
+    fd = os.open(args.file, os.O_RDONLY)
+    tcon = SmbMntTconInfoStruct()
+
+    try:
+        tcon.ioctl(fd)
+    except Exception as e:
+        print("syscall failed: %s"%e)
+        return False
+
+    print("TCON Id: 0x%x"%tcon.tid)
+    print("Session Id: 0x%x"%tcon.session_id)
 
 if __name__ == '__main__':
     main()
