@@ -601,6 +601,23 @@ acdirmax=arg
   If this option is not specified, then acdirmax value will be set to ``actimeo``
   value, see ``actimeo`` for more details.
 
+multichannel
+  This option enables multichannel feature. Multichannel is an SMB3 protocol
+  feature that allows client to establish multiple transport connections to an
+  SMB server and bind them into a single authenticated SMB session. This feature
+  enhances fault tolerance and increases throughput by distributing traffic
+  across several connections. With this mount option default is to use two
+  channels if the server supports multichannel. The ``max_channels`` parameter
+  can be specified if you desire to use more than two channels.
+
+max_channels=arg
+  This option is applicable while using ``multichannel`` feature. max_channels
+  option allows the user to specify the number of transport connections that
+  should be establised between client and server up to a limit of 16. Using
+  this option implicitly enables the ``multichannel`` feature.
+  If max_channels option not specified, ``multichannel`` feature defaults to
+  using 2 connections.
+
 noposixpaths
   If unix extensions are enabled on a share, then the client will
   typically allow filenames to include any character besides '/' in a
