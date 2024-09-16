@@ -23,6 +23,7 @@ import re
 import subprocess
 import argparse
 from pprint import pprint as P
+from collections import defaultdict
 
 def extract_canonical_opts(s):
     """
@@ -38,52 +39,30 @@ def extract_canonical_opts(s):
 
 def extract_kernel_opts(fn):
     STATE_BASE = 0
-    STATE_DEF = 1
-    STATE_USE = 2
-    STATE_EXIT = 3
+    STATE_USE = 1
 
     state = STATE_BASE
-    fmt2enum = {}
-    enum2code = {}
-    code = ''
-    current_opt = ''
+    name2enum = {}
+    enum2code = defaultdict(lambda: '')
     rx = RX()
-
-    def code_add(s):
-        if current_opt != '':
-            if current_opt not in enum2code:
-                enum2code[current_opt] = ''
-            enum2code[current_opt] += s
 
     with open(fn) as f:
         for s in f.readlines():
-            if state == STATE_EXIT:
-                break
-
-            elif state == STATE_BASE:
-                if rx.search(r'cifs_mount_option_tokens.*\{', s):
-                    state = STATE_DEF
-                elif rx.search(r'^cifs_parse_mount_options', s):
+            if state == STATE_BASE:
+                if rx.search(r'^\s*fsparam_(.*)\("([^,]+)",\s+([^,]+)(?:,\s+([^,]+))?\)', s):
+                    fmt = rx.group(1)
+                    name = rx.group(2)
+                    name2enum[name] = { 'enum': rx.group(3), 'fmt': fmt }
+                elif rx.search(r'^\s*case (Opt_[a-zA-Z0-9_]+)', s):
+                    current_opt = rx.group(1)
                     state = STATE_USE
 
-            elif state == STATE_DEF:
-                if rx.search(r'(Opt_[a-zA-Z0-9_]+)\s*,\s*"([^"]+)"', s):
-                    fmt = rx.group(2)
-                    opts = extract_canonical_opts(fmt)
-                    assert(len(opts) == 1)
-                    name = opts[0]
-                    fmt2enum[name] = {'enum':rx.group(1), 'fmt':fmt}
-                elif rx.search(r'^};', s):
+            elif state == STATE_USE:
+                enum2code[current_opt] += s
+                if rx.search(r'\s*break;', s):
                     state = STATE_BASE
 
-            elif state == STATE_USE:
-                if rx.search(r'^\s*case (Opt_[a-zA-Z0-9_]+)', s):
-                    current_opt = rx.group(1)
-                elif current_opt != '' and rx.search(r'^\s*default:', s):
-                    state = STATE_EXIT
-                else:
-                    code_add(s)
-    return fmt2enum, enum2code
+    return name2enum, enum2code
 
 def chomp(s):
     if s[-1] == '\n':
@@ -158,23 +137,23 @@ def main():
     ap.add_argument("rstfile", help="path to mount.cifs.rst")
     args = ap.parse_args()
 
-    fmt2enum, enum2code = extract_kernel_opts(args.cfile)
+    name2enum, enum2code = extract_kernel_opts(args.cfile)
     manopts = extract_man_opts(args.rstfile)
 
-    kernel_opts_set = set(fmt2enum.keys())
+    kernel_opts_set = set(name2enum.keys())
     man_opts_set = set(manopts.keys())
 
     def opt_alias_is_doc(o):
-        enum = fmt2enum[o]['enum']
+        enum = name2enum[o]['enum']
         aliases = []
-        for k,v in fmt2enum.items():
+        for k,v in name2enum.items():
             if k != o and v['enum'] == enum:
                 if opt_is_doc(k):
                     return k
         return None
 
     def opt_exists(o):
-        return o in fmt2enum
+        return o in name2enum
 
     def opt_is_doc(o):
         return o in manopts
@@ -194,8 +173,8 @@ def main():
     undoc_opts = kernel_opts_set - man_opts_set
     # group opts and their negations together
     for opt in sortedset(undoc_opts):
-        fmt = fmt2enum[opt]['fmt']
-        enum = fmt2enum[opt]['enum']
+        fmt = name2enum[opt]['fmt']
+        enum = name2enum[opt]['enum']
         code = format_code(enum2code[enum])
         neg = opt_neg(opt)
 
@@ -222,6 +201,13 @@ def main():
     # group opts and their negations together
     for opt in sortedset(unex_opts):
         man = manopts[opt][0]
+
+        # If positive opt exists and it is used, then negative opt does
+        # not need to exist
+        if opt.startswith('no') and opt[2:] in name2enum:
+            print(f'# skipping {opt} ({opt[2:]} exists)')
+            continue
+
         print('OPTION %s ("%s") line %d' % (opt, man['fmt'], man['ln']))
 
 
