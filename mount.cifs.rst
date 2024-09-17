@@ -628,6 +628,11 @@ noposixpaths
 posixpaths
   Inverse of ``noposixpaths`` .
 
+compress
+  **EXPERIMENTAL FEATURE** Enables over-the-wire message compression for
+  SMB 3.1.1 or higher mounts. Mount fails when compress is on and ``vers`` is
+  set to a version lower than 3.1.1.
+
 vers=arg
   SMB protocol version. Allowed values are:
 
