@@ -666,6 +666,10 @@ vers=arg
   kernels prior to v4.13, the default was ``1.0``. For kernels
   between v4.13 and v4.13.5 the default is ``3.0``.
 
+sloppy
+  Allows the system to ignore any unrecognized mount options that follow this
+  option instead of failing to mount altogether.
+
 --verbose
   Print additional debugging information for the mount. Note that this
   parameter must be specified before the ``-o`` . For example::
