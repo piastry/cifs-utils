@@ -600,7 +600,8 @@ actimeo=arg
   the server. Longer timeouts mean a reduced number of calls to the
   server but looser cache coherency. The ``actimeo`` value is a positive
   integer that can hold values between 0 and a maximum value of 2^30 \*
-  HZ (frequency of timer interrupt) setting.
+  HZ (frequency of timer interrupt) setting. Setting it to 0 disables
+  caching.
 
 acregmax=arg
   The maximum time (in seconds) that the CIFS client caches attributes of a
