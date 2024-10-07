@@ -15,19 +15,22 @@ smb_info()
 	      filemodeinfo
 	      filepositioninfo
 	      filestandardinfo
+	      filestreaminfo
 	      fsctl-getobjid
 	      getcompression
 	      setcompression
 	      list-snapshots
 	      quota
-	      secdesc"
+	      secdesc
+	      keys
+	      gettconinfo"
 	case $prev in
 		'-v'|'-h')
 			return 0
 			;;
 		'fileaccessinfo'|'filealigninfo'|'fileallinfo'|'filebasicinfo'|'fileeainfo'|'filefsfullsizeinfo'|\
-		'fileinternalinfo'|'filemodeinfo'|'filepositioninfo'|'filestandardinfo'|'fsctl-getobjid'|\
-		'getcompression'|'setcompression'|'list-snapshots'|'quota'|'secdesc')
+		'fileinternalinfo'|'filemodeinfo'|'filepositioninfo'|'filestandardinfo'|'filestreaminfo'|'fsctl-getobjid'|\
+		'getcompression'|'setcompression'|'list-snapshots'|'quota'|'secdesc'|'keys'|'gettconinfo')
 			local IFS=$'\n'
 			compopt -o filenames
 			COMPREPLY=( $(compgen -f -o dirnames -- ${cur:-""}) )
