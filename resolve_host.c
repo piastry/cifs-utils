@@ -147,6 +147,7 @@ int resolve_host(const char *host, char *addrstr) {
 			goto resolve_host_out;
 
 		char site_name[MAXCDNAME];
+		site_name[0] = '\0';
 		// We assume that AD always sends the ip addresses in the addtional data block
 		for (int i = 0; i < ns_msg_count(global_domain_handle, ns_s_ar); i++) {
 			ns_rr rr;
