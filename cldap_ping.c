@@ -318,9 +318,11 @@ int cldap_ping(char *domain, sa_family_t family, void *addr, char *site_name) {
 
 	struct timeval timeout = {.tv_sec = 2, .tv_usec = 0};
 	if (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
+		close(sock);
 		return CLDAP_PING_NETWORK_ERROR;
 	}
 	if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+		close(sock);
 		return CLDAP_PING_NETWORK_ERROR;
 	}
 
