@@ -78,15 +78,28 @@ password=arg|pass=arg
   Note that a password which contains the delimiter character (i.e. a
   comma ',') will fail to be parsed correctly on the command
   line. However, the same password defined in the PASSWD environment
-  variable or via a credentials file (see below) or entered at the
-  password prompt will be read correctly.
+  variable or via a credentials file or entered at the password prompt
+  will be read correctly.
+
+password2=arg|pass2=arg
+  specifies an alternate password to help with password rotation. If
+  this option is not given, then the environment variable PASSWD2 is used.
+  If password2 is not specified directly or indirectly via an argument
+  to mount, mount.cifs will NOT prompt for password2.
+
+  Note that a password2 which contains the delimiter character (i.e. a
+  comma ',') will fail to be parsed correctly on the command
+  line. However, the same password2 defined in the PASSWD2 environment
+  variable or via a credentials file (see below) will be read correctly.
 
 credentials=filename|cred=filename
   specifies a file that contains a username and/or password and
-  optionally the name of the workgroup. The format of the file is::
+  optionally an alternate password and/or the name of the workgroup.
+  The format of the file is::
 
    username=value
    password=value
+   password2=value
    domain=value
 
   This is preferred over having passwords in plaintext in a shared file,

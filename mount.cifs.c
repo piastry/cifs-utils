@@ -124,6 +124,7 @@
 #define CRED_USER        1
 #define CRED_PASS        2
 #define CRED_DOM         4
+#define CRED_PASS2		 5
 
 /*
  * Values for parsing command line options.
@@ -163,6 +164,7 @@
 #define OPT_BKUPGID    31
 #define OPT_NOFAIL     32
 #define OPT_SNAPSHOT   33
+#define OPT_PASS2	   34
 
 #define MNT_TMP_FILE "/.mtab.cifs.XXXXXX"
 
@@ -185,9 +187,11 @@ struct parsed_mount_info {
 	char domain[MAX_DOMAIN_SIZE + 1];
 	char username[MAX_USERNAME_SIZE + 1];
 	char password[MOUNT_PASSWD_SIZE + 1];
+	char password2[MOUNT_PASSWD_SIZE + 1];
 	char addrlist[MAX_ADDR_LIST_LEN];
 	unsigned int got_user:1;
 	unsigned int got_password:1;
+	unsigned int got_password2:1;
 	unsigned int fakemnt:1;
 	unsigned int nomtab:1;
 	unsigned int verboseflag:1;
@@ -294,7 +298,7 @@ static int mount_usage(FILE * stream)
 	fprintf(stream,
 		"\n\tsign,seal,fsc,snapshot=<token|time>,nosharesock,persistenthandles,");
 	fprintf(stream,
-		"\n\tresilienthandles,rdma,vers=<smb_dialect>,cruid");
+		"\n\tresilienthandles,rdma,vers=<smb_dialect>,cruid,password2=<alt password>");
 	fprintf(stream,
 		"\n\nOptions not needed for servers supporting CIFS Unix extensions");
 	fprintf(stream,
@@ -330,21 +334,29 @@ static int mount_usage(FILE * stream)
  * end up getting confused for option delimiters. Copy password into pw
  * field, turning any commas into double commas.
  */
-static int set_password(struct parsed_mount_info *parsed_info, const char *src)
+static int
+set_password(struct parsed_mount_info *parsed_info, const char *src,
+			   const int is_pass2)
 {
-	char *dst = parsed_info->password;
+	char *dst = is_pass2 ?
+				parsed_info->password2 : parsed_info->password;
+	unsigned int pass_length = is_pass2 ?
+					  sizeof(parsed_info->password2) : sizeof(parsed_info->password);
 	unsigned int i = 0, j = 0;
 
 	while (src[i]) {
 		if (src[i] == ',')
 			dst[j++] = ',';
 		dst[j++] = src[i++];
-		if (j > sizeof(parsed_info->password)) {
+		if (j > pass_length) {
 			fprintf(stderr, "Converted password too long!\n");
 			return EX_USAGE;
 		}
 	}
 	dst[j] = '\0';
+	if (is_pass2)
+		parsed_info->got_password2 = 1;
+	else
 	parsed_info->got_password = 1;
 	return 0;
 }
@@ -559,6 +571,9 @@ static int parse_cred_line(char *line, char **target)
 	/* tell the caller which value target points to */
 	if (strncasecmp("user", line, 4) == 0)
 		return CRED_USER;
+	if (strncasecmp("pass2", line, 5) == 0 ||
+		strncasecmp("password2", line, 9) == 0)
+		return CRED_PASS2;
 	if (strncasecmp("pass", line, 4) == 0)
 		return CRED_PASS;
 	if (strncasecmp("dom", line, 3) == 0)
@@ -623,7 +638,12 @@ static int open_cred_file(char *file_name,
 			parsed_info->got_user = 1;
 			break;
 		case CRED_PASS:
-			i = set_password(parsed_info, temp_val);
+			i = set_password(parsed_info, temp_val, 0);
+			if (i)
+				goto return_i;
+			break;
+		case CRED_PASS2:
+			i = set_password(parsed_info, temp_val, 1);
 			if (i)
 				goto return_i;
 			break;
@@ -652,10 +672,13 @@ return_i:
 
 static int
 get_password_from_file(int file_descript, char *filename,
-		       struct parsed_mount_info *parsed_info, const char *program)
+		       struct parsed_mount_info *parsed_info, const char *program,
+			   const int is_pass2)
 {
 	int rc = 0;
-	char buf[sizeof(parsed_info->password) + 1];
+	unsigned int pass_length = is_pass2 ?
+					  sizeof(parsed_info->password2) : sizeof(parsed_info->password);
+	char buf[pass_length + 1];
 
 	if (filename != NULL) {
 		rc = toggle_dac_capability(0, 1);
@@ -697,7 +720,7 @@ get_password_from_file(int file_descript, char *filename,
 		goto get_pw_exit;
 	}
 
-	rc = set_password(parsed_info, buf);
+	rc = set_password(parsed_info, buf, is_pass2);
 
 get_pw_exit:
 	if (filename != NULL)
@@ -727,6 +750,9 @@ static int parse_opt_token(const char *token)
 	if (strcmp(token, "pass") == 0 ||
 		strcmp(token, "password") == 0)
 		return OPT_PASS;
+	if (strcmp(token, "pass2") == 0 ||
+		strcmp(token, "password2") == 0)
+		return OPT_PASS2;
 	if (strcmp(token, "sec") == 0)
 		return OPT_SEC;
 	if (strcmp(token, "ip") == 0 ||
@@ -902,18 +928,36 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 				parsed_info->got_password = 1;
 				goto nocopy;
 			}
-			rc = set_password(parsed_info, value);
+			rc = set_password(parsed_info, value, 0);
+			if (rc)
+				return rc;
+			goto nocopy;
+
+		case OPT_PASS2:
+		if (parsed_info->got_password2) {
+				fprintf(stderr,
+					"password2 specified twice, ignoring second\n");
+				goto nocopy;
+			}
+			if (!value || !*value) {
+				parsed_info->got_password2 = 1;
+				goto nocopy;
+			}
+			rc = set_password(parsed_info, value, 1);
 			if (rc)
 				return rc;
 			goto nocopy;
 
 		case OPT_SEC:
 			if (value) {
-				if (!strncmp(value, "none", 4))
+				if (!strncmp(value, "none", 4)) {
 					parsed_info->got_password = 1;
+					parsed_info->got_password2 = 1;
+				}
 				if (!strncmp(value, "krb5", 4)) {
 					parsed_info->is_krb5 = 1;
 					parsed_info->got_password = 1;
+					parsed_info->got_password2 = 1;
 				}
 			}
 			break;
@@ -1110,6 +1154,7 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 		case OPT_GUEST:
 			parsed_info->got_user = 1;
 			parsed_info->got_password = 1;
+			parsed_info->got_password2 = 1;
 			goto nocopy;
 		case OPT_RO:
 			*filesys_flags |= MS_RDONLY;
@@ -1381,13 +1426,25 @@ static int get_pw_from_env(struct parsed_mount_info *parsed_info, const char *pr
 	int rc = 0;
 
 	if (getenv("PASSWD"))
-		rc = set_password(parsed_info, getenv("PASSWD"));
+		rc = set_password(parsed_info, getenv("PASSWD"), 0);
 	else if (getenv("PASSWD_FD"))
 		rc = get_password_from_file(atoi(getenv("PASSWD_FD")), NULL,
-					    parsed_info, program);
+					    parsed_info, program, 0);
 	else if (getenv("PASSWD_FILE"))
 		rc = get_password_from_file(0, getenv("PASSWD_FILE"),
-					    parsed_info, program);
+					    parsed_info, program, 0);
+
+	if (rc < 0)
+		return rc;
+
+	if (getenv("PASSWD2"))
+		rc = set_password(parsed_info, getenv("PASSWD2"), 1);
+	else if (getenv("PASSWD2_FD"))
+		rc = get_password_from_file(atoi(getenv("PASSWD2_FD")), NULL,
+					    parsed_info, program, 1);
+	else if (getenv("PASSWD2_FILE"))
+		rc = get_password_from_file(0, getenv("PASSWD2_FILE"),
+					    parsed_info, program, 1);
 
 	return rc;
 }
@@ -1413,6 +1470,8 @@ static struct option longopts[] = {
 	{"domain", 1, NULL, 'd'},
 	{"password", 1, NULL, 'p'},
 	{"pass", 1, NULL, 'p'},
+	{"password2", 1, NULL, 0},
+	{"pass2", 1, NULL, 0},
 	{"credentials", 1, NULL, 'c'},
 	{"port", 1, NULL, 'P'},
 	{"sloppy", 0, NULL, 's'},
@@ -1923,6 +1982,7 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 		parsed_info->got_user = 1;
 	}
 
+	// no need to prompt for password2
 	if (!parsed_info->got_password) {
 		char tmp_pass[MOUNT_PASSWD_SIZE + 1];
 		char *prompt = NULL;
@@ -1931,7 +1991,7 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 			prompt = NULL;
 
 		if (get_password(prompt ? prompt : "Password: ", tmp_pass, MOUNT_PASSWD_SIZE + 1)) {
-			rc = set_password(parsed_info, tmp_pass);
+			rc = set_password(parsed_info, tmp_pass, 0);
 		} else {
 			fprintf(stderr, "Error reading password, exiting\n");
 			rc = EX_SYSERR;
@@ -2252,6 +2312,13 @@ mount_retry:
 			fprintf(stderr, ",pass=********");
 	}
 
+	if (parsed_info->got_password2) {
+		strlcat(options, ",password2=", options_size);
+		strlcat(options, parsed_info->password2, options_size);
+		if (parsed_info->verboseflag)
+			fprintf(stderr, ",password2=********");
+	}
+
 	if (parsed_info->verboseflag)
 		fprintf(stderr, "\n");
 
@@ -2343,6 +2410,7 @@ do_mtab:
 mount_exit:
 	if (parsed_info) {
 		memset(parsed_info->password, 0, sizeof(parsed_info->password));
+		memset(parsed_info->password2, 0, sizeof(parsed_info->password2));
 		munmap(parsed_info, sizeof(*parsed_info));
 	}
 
