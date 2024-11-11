@@ -943,12 +943,12 @@ The variable ``USER`` may contain the username of the person to be used
 to authenticate to the server. The variable can be used to set both
 username and password by using the format ``username%password``.
 
-The variable ``PASSWD`` may contain the password of the person using
-the client.
+The variables ``PASSWD`` and ``PASSWD2`` may contain the password and the
+alternate password of the person using the client, respectively.
 
-The variable ``PASSWD_FILE`` may contain the pathname of a file to read
-the password from. A single line of input is read and used as the
-password.
+The variables ``PASSWD_FILE`` and ``PASSWD2_FILE`` may contain the
+pathname of the file to read password or password2 from, respectively.
+A single line of input is read and used as the password in each case.
 
 *****
 NOTES

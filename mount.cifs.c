@@ -336,8 +336,10 @@ static int mount_usage(FILE * stream)
  */
 static int
 set_password(struct parsed_mount_info *parsed_info, const char *src,
-			   const int is_pass2)
+			   const int which_pass)
 {
+	int is_pass2 = which_pass == OPT_PASS2 || which_pass == CRED_PASS2;
+
 	char *dst = is_pass2 ?
 				parsed_info->password2 : parsed_info->password;
 	unsigned int pass_length = is_pass2 ?
@@ -638,12 +640,12 @@ static int open_cred_file(char *file_name,
 			parsed_info->got_user = 1;
 			break;
 		case CRED_PASS:
-			i = set_password(parsed_info, temp_val, 0);
+			i = set_password(parsed_info, temp_val, CRED_PASS);
 			if (i)
 				goto return_i;
 			break;
 		case CRED_PASS2:
-			i = set_password(parsed_info, temp_val, 1);
+			i = set_password(parsed_info, temp_val, CRED_PASS2);
 			if (i)
 				goto return_i;
 			break;
@@ -673,9 +675,10 @@ return_i:
 static int
 get_password_from_file(int file_descript, char *filename,
 		       struct parsed_mount_info *parsed_info, const char *program,
-			   const int is_pass2)
+			   const int which_pass)
 {
 	int rc = 0;
+	int is_pass2 = which_pass == OPT_PASS2;
 	unsigned int pass_length = is_pass2 ?
 					  sizeof(parsed_info->password2) : sizeof(parsed_info->password);
 	char buf[pass_length + 1];
@@ -720,7 +723,7 @@ get_password_from_file(int file_descript, char *filename,
 		goto get_pw_exit;
 	}
 
-	rc = set_password(parsed_info, buf, is_pass2);
+	rc = set_password(parsed_info, buf, which_pass);
 
 get_pw_exit:
 	if (filename != NULL)
@@ -928,7 +931,7 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 				parsed_info->got_password = 1;
 				goto nocopy;
 			}
-			rc = set_password(parsed_info, value, 0);
+			rc = set_password(parsed_info, value, OPT_PASS);
 			if (rc)
 				return rc;
 			goto nocopy;
@@ -943,7 +946,7 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 				parsed_info->got_password2 = 1;
 				goto nocopy;
 			}
-			rc = set_password(parsed_info, value, 1);
+			rc = set_password(parsed_info, value, OPT_PASS2);
 			if (rc)
 				return rc;
 			goto nocopy;
@@ -1426,25 +1429,25 @@ static int get_pw_from_env(struct parsed_mount_info *parsed_info, const char *pr
 	int rc = 0;
 
 	if (getenv("PASSWD"))
-		rc = set_password(parsed_info, getenv("PASSWD"), 0);
+		rc = set_password(parsed_info, getenv("PASSWD"), OPT_PASS);
 	else if (getenv("PASSWD_FD"))
 		rc = get_password_from_file(atoi(getenv("PASSWD_FD")), NULL,
-					    parsed_info, program, 0);
+					    parsed_info, program, OPT_PASS);
 	else if (getenv("PASSWD_FILE"))
 		rc = get_password_from_file(0, getenv("PASSWD_FILE"),
-					    parsed_info, program, 0);
+					    parsed_info, program, OPT_PASS);
 
 	if (rc < 0)
 		return rc;
 
 	if (getenv("PASSWD2"))
-		rc = set_password(parsed_info, getenv("PASSWD2"), 1);
+		rc = set_password(parsed_info, getenv("PASSWD2"), OPT_PASS2);
 	else if (getenv("PASSWD2_FD"))
 		rc = get_password_from_file(atoi(getenv("PASSWD2_FD")), NULL,
-					    parsed_info, program, 1);
+					    parsed_info, program, OPT_PASS2);
 	else if (getenv("PASSWD2_FILE"))
 		rc = get_password_from_file(0, getenv("PASSWD2_FILE"),
-					    parsed_info, program, 1);
+					    parsed_info, program, OPT_PASS2);
 
 	return rc;
 }
@@ -1983,7 +1986,7 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 	}
 
 	// no need to prompt for password2
-	if (!parsed_info->got_password) {
+	if (!parsed_info->got_password && !(parsed_info->flags & MS_REMOUNT)) {
 		char tmp_pass[MOUNT_PASSWD_SIZE + 1];
 		char *prompt = NULL;
 
@@ -1991,7 +1994,7 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 			prompt = NULL;
 
 		if (get_password(prompt ? prompt : "Password: ", tmp_pass, MOUNT_PASSWD_SIZE + 1)) {
-			rc = set_password(parsed_info, tmp_pass, 0);
+			rc = set_password(parsed_info, tmp_pass, OPT_PASS);
 		} else {
 			fprintf(stderr, "Error reading password, exiting\n");
 			rc = EX_SYSERR;
