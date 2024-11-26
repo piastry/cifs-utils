@@ -552,11 +552,6 @@ get_existing_cc(const char *env_cachename)
 		syslog(LOG_DEBUG, "%s: default ccache is %s\n", __func__, cachename);
 		krb5_free_string(context, cachename);
 	}
-
-	if (!get_tgt_time(cc)) {
-		krb5_cc_close(context, cc);
-		cc = NULL;
-	}
 	return cc;
 }
 
@@ -637,6 +632,49 @@ icfk_cleanup:
 }
 
 #define CIFS_SERVICE_NAME "cifs"
+
+static krb5_error_code check_service_ticket_exists(krb5_ccache ccache,
+		const char *hostname) {
+
+	krb5_error_code rc;
+	krb5_creds mcreds, out_creds;
+
+	memset(&mcreds, 0, sizeof(mcreds));
+
+	rc = krb5_cc_get_principal(context, ccache, &mcreds.client);
+	if (rc) {
+		syslog(LOG_DEBUG, "%s: unable to get client principal from cache: %s",
+					__func__, krb5_get_error_message(context, rc));
+		return rc;
+	}
+
+	rc = krb5_sname_to_principal(context, hostname, CIFS_SERVICE_NAME,
+			KRB5_NT_UNKNOWN, &mcreds.server);
+	if (rc) {
+		syslog(LOG_DEBUG, "%s: unable to convert service name (%s) to principal: %s",
+					__func__, hostname, krb5_get_error_message(context, rc));
+		krb5_free_principal(context, mcreds.client);
+		return rc;
+	}
+
+	rc = krb5_timeofday(context, &mcreds.times.endtime);
+	if (rc) {
+		syslog(LOG_DEBUG, "%s: unable to get time: %s",
+			__func__, krb5_get_error_message(context, rc));
+		goto out_free_principal;
+	}
+
+	rc = krb5_cc_retrieve_cred(context, ccache, KRB5_TC_MATCH_TIMES, &mcreds, &out_creds);
+
+	if (!rc)
+		krb5_free_cred_contents(context, &out_creds);
+
+out_free_principal:
+	krb5_free_principal(context, mcreds.server);
+	krb5_free_principal(context, mcreds.client);
+
+	return rc;
+}
 
 static int
 cifs_krb5_get_req(const char *host, krb5_ccache ccache,
@@ -1516,12 +1554,26 @@ int main(const int argc, char *const argv[])
 		goto out;
 	}
 
+	host = arg->hostname;
 	ccache = get_existing_cc(env_cachename);
+	if (ccache != NULL) {
+		rc = check_service_ticket_exists(ccache, host);
+		if(rc == 0) {
+			 syslog(LOG_DEBUG, "%s: valid service ticket exists in credential cache",
+					 __func__);
+		} else {
+			 if (!get_tgt_time(ccache)) {
+				syslog(LOG_DEBUG, "%s: valid TGT is not present in credential cache",
+						__func__);
+				krb5_cc_close(context, ccache);
+				ccache = NULL;
+			}
+		}
+	}
 	/* Couldn't find credcache? Try to use keytab */
 	if (ccache == NULL && arg->username[0] != '\0')
 		ccache = init_cc_from_keytab(keytab_name, arg->username);
 
-	host = arg->hostname;
 
 	// do mech specific authorization
 	switch (arg->sec) {
