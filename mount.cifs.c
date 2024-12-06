@@ -859,7 +859,7 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 	 * wide +1 for NULL, and +1 for good measure
 	 */
 	char txtbuf[22];
-	unsigned long long snapshot;
+	unsigned long long snapshot = 0;
 	struct tm tm;
 
 	/* make sure we're starting from beginning */
@@ -1266,7 +1266,11 @@ nocopy:
 			strlcat(out, ",", MAX_OPTIONS_LEN);
 			out_len++;
 		}
-		snprintf(out + out_len, word_len + 5, "uid=%s", txtbuf);
+		rc = snprintf(out + out_len, word_len + 5, "uid=%s", txtbuf);
+		if (rc < 0) {
+			fprintf(stderr, "Error in creating mount string\n");
+			return EX_SYSERR;
+		}
 		out_len = strlen(out);
 	}
 	if (parsed_info->is_krb5 && parsed_info->sudo_uid) {
@@ -1286,7 +1290,11 @@ nocopy:
 			strlcat(out, ",", MAX_OPTIONS_LEN);
 			out_len++;
 		}
-		snprintf(out + out_len, word_len + 7, "cruid=%s", txtbuf);
+		rc = snprintf(out + out_len, word_len + 7, "cruid=%s", txtbuf);
+		if (rc < 0) {
+			fprintf(stderr, "Error in creating mount string\n");
+			return EX_SYSERR;
+		}
 		out_len = strlen(out);
 	}
 	if (got_gid) {
@@ -1302,7 +1310,11 @@ nocopy:
 			strlcat(out, ",", MAX_OPTIONS_LEN);
 			out_len++;
 		}
-		snprintf(out + out_len, word_len + 5, "gid=%s", txtbuf);
+		rc = snprintf(out + out_len, word_len + 5, "gid=%s", txtbuf);
+		if (rc < 0) {
+			fprintf(stderr, "Error in creating mount string\n");
+			return EX_SYSERR;
+		}
 		out_len = strlen(out);
 	}
 	if (got_bkupuid) {
@@ -1318,7 +1330,11 @@ nocopy:
 			strlcat(out, ",", MAX_OPTIONS_LEN);
 			out_len++;
 		}
-		snprintf(out + out_len, word_len + 11, "backupuid=%s", txtbuf);
+		rc = snprintf(out + out_len, word_len + 11, "backupuid=%s", txtbuf);
+		if (rc < 0) {
+			fprintf(stderr, "Error in creating mount string\n");
+			return EX_SYSERR;
+		}
 		out_len = strlen(out);
 	}
 	if (got_bkupgid) {
@@ -1334,7 +1350,11 @@ nocopy:
 			strlcat(out, ",", MAX_OPTIONS_LEN);
 			out_len++;
 		}
-		snprintf(out + out_len, word_len + 11, "backupgid=%s", txtbuf);
+		rc = snprintf(out + out_len, word_len + 11, "backupgid=%s", txtbuf);
+		if (rc < 0) {
+			fprintf(stderr, "Error in creating mount string\n");
+			return EX_SYSERR;
+		}
 		out_len = strlen(out);
 	}
 	if (got_snapshot) {
@@ -1350,7 +1370,11 @@ nocopy:
 			strlcat(out, ",", MAX_OPTIONS_LEN);
 			out_len++;
 		}
-		snprintf(out + out_len, word_len + 10, "snapshot=%s", txtbuf);
+		rc = snprintf(out + out_len, word_len + 10, "snapshot=%s", txtbuf);
+		if (rc < 0) {
+			fprintf(stderr, "Error in creating mount string\n");
+			return EX_SYSERR;
+		}
 		out_len = strlen(out);
 	}
 
