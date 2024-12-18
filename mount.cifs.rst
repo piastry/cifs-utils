@@ -285,6 +285,14 @@ handlecache
 nohandlecache
   Disable caching of the share root directory handle.
 
+max_cached_dirs=arg
+  The maximum number of cached directories per share. Directories are cached locally
+  when a lease is granted by the server, which improves performance by reducing network
+  traffic.
+
+  By default, ``max_cached_dirs`` is set to 16 and can hold values between 0
+  and a maximum value of 2^32 - 1.
+
 handletimeout=arg
   The time (in milliseconds) for which the server should reserve the handle after
   a failover waiting for the client to reconnect.  When mounting with
