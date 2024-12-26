@@ -133,6 +133,10 @@ AC_CHECK_HEADERS([arpa/inet.h ctype.h fcntl.h inttypes.h limits.h mntent.h netdb
 AC_CHECK_HEADERS([sys/fsuid.h])
 AC_CHECK_FUNC(setfsuid, , [AC_MSG_ERROR([System does not support setfsuid()])])
 
+# libtalloc
+AC_CHECK_HEADERS([talloc.h], ,[AC_MSG_ERROR([talloc.h not found, consider installing libtalloc-devel.])])
+AC_CHECK_LIB(talloc, talloc_init, ,[AC_MSG_ERROR([talloc.h not found, consider installing libtalloc-devel.])])
+
 # FIXME: add test(s) to autodisable these flags when compiler/linker don't support it
 if test $enable_pie != "no"; then
 	PIE_CFLAGS="-fpie -pie"
@@ -176,16 +180,6 @@ if test $enable_cifsupcall != "no"; then
 		AC_DEFINE(HAVE_KRB5_KEYBLOCK_KEYVALUE,1,
 			[Whether the krb5_keyblock struct has a keyvalue property])
 	fi
-fi
-if test $enable_cifsupcall != "no"; then
-	AC_CHECK_HEADERS([talloc.h], , [
-				if test "$enable_cifsupcall" = "yes"; then
-					AC_MSG_ERROR([talloc.h not found, consider installing libtalloc-devel.])
-				else
-					AC_MSG_WARN([talloc.h not found, consider installing libtalloc-devel. Disabling cifs.upcall.])
-					enable_cifsupcall="no"
-				fi
-			])
 fi
 if test $enable_cifsupcall != "no" -o $enable_cifsidmap != "no"; then
 	AC_CHECK_HEADERS([keyutils.h], , [
