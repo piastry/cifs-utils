@@ -198,6 +198,7 @@ struct parsed_mount_info {
 	unsigned int nofail:1;
 	unsigned int got_domain:1;
 	unsigned int is_krb5:1;
+	unsigned int is_noauth:1;
 	uid_t sudo_uid;
 };
 
@@ -954,6 +955,7 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 		case OPT_SEC:
 			if (value) {
 				if (!strncmp(value, "none", 4)) {
+					parsed_info->is_noauth = 1;
 					parsed_info->got_password = 1;
 					parsed_info->got_password2 = 1;
 				}
@@ -2328,7 +2330,7 @@ mount_retry:
 		fprintf(stderr, "%s kernel mount options: %s",
 			thisprogram, options);
 
-	if (parsed_info->got_password) {
+	if (parsed_info->got_password && !(parsed_info->is_krb5 || parsed_info->is_noauth)) {
 		/*
 		 * Commas have to be doubled, or else they will
 		 * look like the parameter separator
@@ -2339,7 +2341,7 @@ mount_retry:
 			fprintf(stderr, ",pass=********");
 	}
 
-	if (parsed_info->got_password2) {
+	if (parsed_info->got_password2 && !(parsed_info->is_krb5 || parsed_info->is_noauth)) {
 		strlcat(options, ",password2=", options_size);
 		strlcat(options, parsed_info->password2, options_size);
 		if (parsed_info->verboseflag)
