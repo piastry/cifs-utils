@@ -501,7 +501,7 @@ int main(int argc, char **argv)
 		if (cmd->name[n] == 0) {
 			/* exact match */
 			best = cmd;
-			break;
+			continue;
 		}
 
 		/* partial match */
