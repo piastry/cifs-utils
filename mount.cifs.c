@@ -41,6 +41,7 @@
 #include <mntent.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <paths.h>
 #include <libgen.h>
 #include <time.h>
@@ -1688,7 +1689,7 @@ add_mtab_exit:
 static int
 del_mtab(char *mountpoint)
 {
-	int len, tmprc, rc = 0;
+	int len, tmprc, rc = 0, tmpfd;
 	FILE *mnttmp, *mntmtab;
 	struct mntent *mountent;
 	char *mtabfile, *mtabdir, *mtabtmpfile = NULL;
@@ -1723,8 +1724,9 @@ del_mtab(char *mountpoint)
 		goto del_mtab_exit;
 	}
 
-	mtabtmpfile = mktemp(mtabtmpfile);
-	if (!mtabtmpfile) {
+	// Use mkstemp instead of mktemp
+	tmpfd = mkstemp(mtabtmpfile);
+	if (tmpfd == -1) {
 		fprintf(stderr, "del_mtab: cannot setup tmp file destination\n");
 		rc = EX_FILEIO;
 		goto del_mtab_exit;
@@ -1734,13 +1736,15 @@ del_mtab(char *mountpoint)
 	if (!mntmtab) {
 		fprintf(stderr, "del_mtab: could not update mount table\n");
 		rc = EX_FILEIO;
+		close(tmpfd);
 		goto del_mtab_exit;
 	}
 
-	mnttmp = setmntent(mtabtmpfile, "w");
+	mnttmp = fdopen(tmpfd, "w");
 	if (!mnttmp) {
 		fprintf(stderr, "del_mtab: could not update mount table\n");
 		endmntent(mntmtab);
+		close(tmpfd);
 		rc = EX_FILEIO;
 		goto del_mtab_exit;
 	}
