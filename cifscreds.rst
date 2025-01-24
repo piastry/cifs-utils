@@ -11,7 +11,7 @@ manage NTLM credentials in kernel keyring
 SYNOPSIS
 ********
 
-  cifscreds add|clear|clearall|update [-u username] [-d] host|domain
+  cifscreds add|clear|clearall|update [-u username] [-d] host|domain [-t timeout]
 
 ***********
 DESCRIPTION
@@ -67,6 +67,10 @@ OPTIONS
   Ordinarily, the username is derived from the unix username of the user
   adding the credentials. This option allows the user to substitute a
   different username.
+
+-t, --timeout
+  Sets the key timeout in seconds. If not set, will use the system default
+  timeout for logon keys.
 
 *****
 NOTES

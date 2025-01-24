@@ -40,11 +40,12 @@ key_search(const char *addr, char keytype)
 
 /* add or update a specific key to keyring */
 key_serial_t
-key_add(const char *addr, const char *user, const char *pass, char keytype)
+key_add(const char *addr, const char *user, const char *pass, char keytype, unsigned timeout)
 {
 	int len;
 	char desc[INET6_ADDRSTRLEN + sizeof(KEY_PREFIX) + 4];
 	char val[MOUNT_PASSWD_SIZE +  MAX_USERNAME_SIZE + 2];
+	key_serial_t key;
 
 	/* set key description */
 	if (snprintf(desc, sizeof(desc), "%s:%c:%s", KEY_PREFIX, keytype, addr) >= (int)sizeof(desc)) {
@@ -59,5 +60,12 @@ key_add(const char *addr, const char *user, const char *pass, char keytype)
 		return -1;
 	}
 
-	return add_key(CIFS_KEY_TYPE, desc, val, len + 1, DEST_KEYRING);
+	if ((key = add_key(CIFS_KEY_TYPE, desc, val, len + 1, DEST_KEYRING)) < 0) {
+		return -1;
+	}
+
+	if (timeout > 0)
+		keyctl_set_timeout(key, timeout);
+
+	return key;
 }

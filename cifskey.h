@@ -41,7 +41,12 @@
 #define CIFS_KEY_PERMS (KEY_POS_VIEW|KEY_POS_WRITE|KEY_POS_SEARCH| \
 			KEY_USR_VIEW|KEY_USR_WRITE|KEY_USR_SEARCH)
 
+/**
+ * Default key timeout is 24 hours
+ */
+#define DEFAULT_KEY_TIMEOUT (24 * 60 * 60)
+
 key_serial_t key_search(const char *addr, char keytype);
-key_serial_t key_add(const char *addr, const char *user, const char *pass, char keytype);
+key_serial_t key_add(const char *addr, const char *user, const char *pass, char keytype, unsigned timeout);
 
 #endif /* _CIFSKEY_H */

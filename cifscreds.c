@@ -43,6 +43,7 @@ struct cmdarg {
 	char		*host;
 	char		*user;
 	char		keytype;
+	unsigned int	timeout;
 };
 
 struct command {
@@ -59,7 +60,7 @@ static int cifscreds_update(struct cmdarg *arg);
 static const char *thisprogram;
 
 static struct command commands[] = {
-	{ cifscreds_add,	"add",		"[-u username] [-d] <host|domain>" },
+	{ cifscreds_add,	"add",		"[-u username] [-d] <host|domain> [-t timeout]" },
 	{ cifscreds_clear,	"clear",	"[-u username] [-d] <host|domain>" },
 	{ cifscreds_clearall,	"clearall",	"" },
 	{ cifscreds_update,	"update",	"[-u username] [-d] <host|domain>" },
@@ -69,6 +70,7 @@ static struct command commands[] = {
 static struct option longopts[] = {
 	{"username", 1, NULL, 'u'},
 	{"domain", 0, NULL, 'd' },
+	{"timeout", 0, NULL, 't' },
 	{NULL, 0, NULL, 0}
 };
 
@@ -218,7 +220,7 @@ static int cifscreds_add(struct cmdarg *arg)
 		*nextaddress++ = '\0';
 
 	while (currentaddress) {
-		key_serial_t key = key_add(currentaddress, arg->user, pass, arg->keytype);
+		key_serial_t key = key_add(currentaddress, arg->user, pass, arg->keytype, arg->timeout);
 		if (key <= 0) {
 			fprintf(stderr, "error: Add credential key for %s: %s\n",
 				currentaddress, strerror(errno));
@@ -253,7 +255,7 @@ static int cifscreds_clear(struct cmdarg *arg)
 	char *currentaddress, *nextaddress;
 	int ret = 0, count = 0, errors = 0;
 
-	if (arg->host == NULL || arg->user == NULL)
+	if (arg->host == NULL || arg->user == NULL || arg->timeout)
 		return usage();
 
 	if (arg->keytype == 'd')
@@ -362,7 +364,7 @@ static int cifscreds_update(struct cmdarg *arg)
 	char *addrs[16];
 	int ret = 0, id, count = 0;
 
-	if (arg->host == NULL || arg->user == NULL)
+	if (arg->host == NULL || arg->user == NULL || arg->timeout)
 		return usage();
 
 	if (arg->keytype == 'd')
@@ -419,7 +421,7 @@ static int cifscreds_update(struct cmdarg *arg)
 	pass = getpass("Password: ");
 
 	for (id = 0; id < count; id++) {
-		key_serial_t key = key_add(addrs[id], arg->user, pass, arg->keytype);
+		key_serial_t key = key_add(addrs[id], arg->user, pass, arg->keytype, 0);
 		if (key <= 0)
 			fprintf(stderr, "error: Update credential key "
 				"for %s: %s\n", addrs[id], strerror(errno));
@@ -474,13 +476,16 @@ int main(int argc, char **argv)
 	if (argc == 1)
 		return usage();
 
-	while((n = getopt_long(argc, argv, "du:", longopts, NULL)) != -1) {
+	while((n = getopt_long(argc, argv, "dut:", longopts, NULL)) != -1) {
 		switch (n) {
 		case 'd':
 			arg.keytype = (char) n;
 			break;
 		case 'u':
 			arg.user = optarg;
+			break;
+		case 't':
+			arg.timeout = atoi(optarg);
 			break;
 		default:
 			return usage();

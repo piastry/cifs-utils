@@ -232,7 +232,7 @@ static int cifscreds_pam_add(pam_handle_t *ph, const char *user, const char *pas
 		*nextaddress++ = '\0';
 
 	while (currentaddress) {
-		key_serial_t key = key_add(currentaddress, user, password, keytype);
+		key_serial_t key = key_add(currentaddress, user, password, keytype, DEFAULT_KEY_TIMEOUT);
 		if (key <= 0) {
 			pam_syslog(ph, LOG_ERR, "error: Add credential key for %s: %s",
 				currentaddress, strerror(errno));
@@ -335,7 +335,7 @@ static int cifscreds_pam_update(pam_handle_t *ph, const char *user, const char *
 	}
 
 	for (id = 0; id < count; id++) {
-		key_serial_t key = key_add(currentaddress, user, password, keytype);
+		key_serial_t key = key_add(currentaddress, user, password, keytype, DEFAULT_KEY_TIMEOUT);
 		if (key <= 0) {
 			pam_syslog(ph, LOG_ERR, "error: Update credential key for %s: %s",
 				   (currentaddress ?: "(null)"), strerror(errno));
