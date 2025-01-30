@@ -636,6 +636,21 @@ acdirmax=arg
   If this option is not specified, then acdirmax value will be set to ``actimeo``
   value, see ``actimeo`` for more details.
 
+upcall_target=arg
+  Determines the namespace in which upcalls from the SMB filesystem should be handled.
+  Allowed values are:
+  - ``mount`` - Resolve upcalls to the host namespace.
+  - ``app`` - Resolve upcalls in the namespace of the calling thread (application).
+  Default value is ``app``.
+  This option is useful in environments like Kubernetes, where the mount
+  may be performed by a driver pod on behalf of an application running
+  in a separate container. It ensures that Kerberos credentials and other
+  user-specific data are accessed in the correct namespace.
+  By specifying ``app``, upcalls can be resolved in the application's namespace,
+  ensuring the correct credentials are used. ``mount`` allows resolution in the
+  host namespace, which may be necessary when credentials or configurations
+  are managed outside the container.
+
 multichannel
   This option enables multichannel feature. Multichannel is an SMB3 protocol
   feature that allows client to establish multiple transport connections to an
