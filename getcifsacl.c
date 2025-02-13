@@ -447,12 +447,13 @@ getxattr:
 			free(attrval);
 			bufsize += BUFSIZE;
 			goto cifsacl;
-		} else if (errno == EIO && !(strcmp(attrname, ATTRNAME_NTSD_FULL))) {
+		} else if (((errno == EIO) || (errno == EPERM)) &&
+			   !(strcmp(attrname, ATTRNAME_NTSD_FULL))) {
 			/*
 			 * attempt to fetch SACL in addition to owner and DACL via
 			 * ATTRNAME_NTSD_FULL, fall back to owner/DACL via
 			 * ATTRNAME_ACL if not allowed
-			 * CIFS client maps STATUS_PRIVILEGE_NOT_HELD to EIO
+			 * Older CIFS client maps STATUS_PRIVILEGE_NOT_HELD to EIO instead of EPERM
 			 */
 			fprintf(stderr, "WARNING: Insufficient priviledges to fetch SACL for %s\n",
 				filename);
