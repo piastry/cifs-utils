@@ -200,6 +200,7 @@ struct parsed_mount_info {
 	unsigned int got_domain:1;
 	unsigned int is_krb5:1;
 	unsigned int is_noauth:1;
+	unsigned int is_guest:1;
 	uid_t sudo_uid;
 };
 
@@ -1158,6 +1159,7 @@ parse_options(const char *data, struct parsed_mount_info *parsed_info)
 			*filesys_flags &= ~MS_NOEXEC;
 			goto nocopy;
 		case OPT_GUEST:
+			parsed_info->is_guest = 1;
 			parsed_info->got_user = 1;
 			parsed_info->got_password = 1;
 			parsed_info->got_password2 = 1;
@@ -2334,7 +2336,8 @@ mount_retry:
 		fprintf(stderr, "%s kernel mount options: %s",
 			thisprogram, options);
 
-	if (parsed_info->got_password && !(parsed_info->is_krb5 || parsed_info->is_noauth)) {
+	if (parsed_info->got_password &&
+		!(parsed_info->is_krb5 || parsed_info->is_noauth || parsed_info->is_guest)) {
 		/*
 		 * Commas have to be doubled, or else they will
 		 * look like the parameter separator
@@ -2345,7 +2348,8 @@ mount_retry:
 			fprintf(stderr, ",pass=********");
 	}
 
-	if (parsed_info->got_password2 && !(parsed_info->is_krb5 || parsed_info->is_noauth)) {
+	if (parsed_info->got_password2 &&
+		!(parsed_info->is_krb5 || parsed_info->is_noauth || parsed_info->is_guest)) {
 		strlcat(options, ",password2=", options_size);
 		strlcat(options, parsed_info->password2, options_size);
 		if (parsed_info->verboseflag)
