@@ -634,33 +634,39 @@ icfk_cleanup:
 #define CIFS_SERVICE_NAME "cifs"
 
 static krb5_error_code check_service_ticket_exists(krb5_ccache ccache,
-		const char *hostname) {
-
-	krb5_error_code rc;
+						   const char *hostname)
+{
 	krb5_creds mcreds, out_creds;
+	const char *errmsg;
+	krb5_error_code rc;
 
 	memset(&mcreds, 0, sizeof(mcreds));
 
 	rc = krb5_cc_get_principal(context, ccache, &mcreds.client);
 	if (rc) {
+		errmsg = krb5_get_error_message(context, rc);
 		syslog(LOG_DEBUG, "%s: unable to get client principal from cache: %s",
-					__func__, krb5_get_error_message(context, rc));
+		       __func__, errmsg);
+		krb5_free_error_message(context, errmsg);
 		return rc;
 	}
 
 	rc = krb5_sname_to_principal(context, hostname, CIFS_SERVICE_NAME,
 			KRB5_NT_UNKNOWN, &mcreds.server);
 	if (rc) {
+		errmsg = krb5_get_error_message(context, rc);
 		syslog(LOG_DEBUG, "%s: unable to convert service name (%s) to principal: %s",
-					__func__, hostname, krb5_get_error_message(context, rc));
+		       __func__, hostname, errmsg);
+		krb5_free_error_message(context, errmsg);
 		krb5_free_principal(context, mcreds.client);
 		return rc;
 	}
 
 	rc = krb5_timeofday(context, &mcreds.times.endtime);
 	if (rc) {
-		syslog(LOG_DEBUG, "%s: unable to get time: %s",
-			__func__, krb5_get_error_message(context, rc));
+		errmsg = krb5_get_error_message(context, rc);
+		syslog(LOG_DEBUG, "%s: unable to get time: %s", __func__, errmsg);
+		krb5_free_error_message(context, errmsg);
 		goto out_free_principal;
 	}
 
