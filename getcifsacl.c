@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <errno.h>
+#include <libgen.h>
 #include <limits.h>
 #include <ctype.h>
 #include <linux/limits.h>

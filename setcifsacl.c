@@ -47,6 +47,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <libgen.h>
 #include <limits.h>
 #include <ctype.h>
 #include <linux/limits.h>
