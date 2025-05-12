@@ -29,6 +29,7 @@
 #include <keyutils.h>
 #include <getopt.h>
 #include <errno.h>
+#include <libgen.h>
 #include "cifskey.h"
 #include "mount.h"
 #include "resolve_host.h"
