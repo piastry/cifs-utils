@@ -1521,6 +1521,7 @@ int main(const int argc, char *const argv[])
 	 */
 	if (arg->upcall_target == UPTARGET_APP || arg->upcall_target == UPTARGET_UNSPECIFIED) {
 		syslog(LOG_INFO, "upcall_target=app, switching namespaces to application thread");
+		arg->upcall_target = UPTARGET_APP;
 		rc = switch_to_process_ns(arg->pid);
 		if (rc == -1) {
 			syslog(LOG_ERR, "unable to switch to process namespace: %s", strerror(errno));
