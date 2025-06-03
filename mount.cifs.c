@@ -2373,6 +2373,7 @@ mount_retry:
 		switch (errno) {
 		case ECONNREFUSED:
 		case EHOSTUNREACH:
+		case EINPROGRESS:
 			if (currentaddress) {
 				fprintf(stderr, "mount error(%d): could not connect to %s",
 					errno, currentaddress);
