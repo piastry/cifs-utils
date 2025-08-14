@@ -307,10 +307,10 @@ rwpidforward
 
 mapchars
   Translate six of the seven reserved characters (not backslash, but
-  including the colon, question mark, pipe, asterik, greater than and
+  including the colon, question mark, pipe, asterisk, greater than and
   less than characters) to the remap range (above 0xF000), which also
   allows the CIFS client to recognize files created with such characters
-  by Windows's Services for Mac. This can also be useful when mounting to
+  by Windows's Services for Unix. This can also be useful when mounting to
   most versions of Samba (which also forbids creating and opening files
   whose names contain any of these seven characters). This has no effect
   if the server does not support Unicode on the wire. Please note that
@@ -322,7 +322,8 @@ nomapchars
 
 mapposix
   Translate reserved characters similarly to ``mapchars`` but use the
-  mapping from Microsoft "Services For Unix".
+  mapping from Microsoft "Services For Mac". This additionally remaps the
+  double quote and a trailing period or space.
 
 intr
   currently unimplemented.
