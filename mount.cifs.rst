@@ -57,17 +57,14 @@ username=arg|user=arg
   specifies the username to connect as. If this is not
   given, then the environment variable USER is used.
 
-  Earlier versions of mount.cifs also allowed one to specify the
-  username in a ``user%password`` or ``workgroup/user`` or
-  ``workgroup/user%password`` to allow the password and workgroup to
-  be specified as part of the username. Support for those alternate
-  username formats is now deprecated and should no longer be
-  used. Users should use the discrete ``password=`` and ``domain=`` to
-  specify those values. While some versions of the cifs kernel module
-  accept ``user=`` as an abbreviation for this option, its use can
-  confuse the standard mount program into thinking that this is a
-  non-superuser mount. It is therefore recommended to use the full
-  ``username=`` option name.
+  Users must use the discrete ``password=`` and ``domain=`` options to
+  specify relevant values. Including these in the ``username=`` option
+  is no longer supported.
+
+  While some versions of the cifs kernel module accept ``user=`` as an
+  abbreviation for this option, its use can confuse the standard mount
+  program into thinking that this is a non-superuser mount. It is
+  therefore recommended to use the full ``username=`` option name.
 
 password=arg|pass=arg
   specifies the CIFS password. If this option is not given then the
