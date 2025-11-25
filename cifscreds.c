@@ -71,7 +71,7 @@ static struct command commands[] = {
 static struct option longopts[] = {
 	{"username", 1, NULL, 'u'},
 	{"domain", 0, NULL, 'd' },
-	{"timeout", 0, NULL, 't' },
+	{"timeout", 1, NULL, 't' },
 	{NULL, 0, NULL, 0}
 };
 
@@ -477,7 +477,7 @@ int main(int argc, char **argv)
 	if (argc == 1)
 		return usage();
 
-	while((n = getopt_long(argc, argv, "dut:", longopts, NULL)) != -1) {
+	while((n = getopt_long(argc, argv, "du:t:", longopts, NULL)) != -1) {
 		switch (n) {
 		case 'd':
 			arg.keytype = (char) n;
@@ -507,7 +507,7 @@ int main(int argc, char **argv)
 		if (cmd->name[n] == 0) {
 			/* exact match */
 			best = cmd;
-			continue;
+			break;
 		}
 
 		/* partial match */
