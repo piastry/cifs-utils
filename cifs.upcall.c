@@ -1719,7 +1719,7 @@ retry_new_hostname:
 	/* pack SecurityBlob and SessionKey into downcall packet */
 	datalen =
 	    sizeof(struct cifs_spnego_msg) + secblob.length + sess_key.length;
-	keydata = (struct cifs_spnego_msg *)calloc(sizeof(char), datalen);
+	keydata = (struct cifs_spnego_msg *)calloc(datalen, sizeof(char));
 	if (!keydata) {
 		rc = 1;
 		goto out;
