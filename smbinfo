@@ -27,6 +27,7 @@ import struct
 import stat
 import datetime
 import calendar
+import threading
 
 VERBOSE = False
 
@@ -36,6 +37,7 @@ CIFS_ENUMERATE_SNAPSHOTS = 0x800ccf06
 CIFS_DUMP_KEY            = 0xc03acf08
 CIFS_DUMP_FULL_KEY       = 0xc011cf0a
 CIFS_GET_TCON_INFO       = 0x800ccf0c
+CIFS_IOC_NOTIFY_INFO     = 0xc009cf0b
 
 # large enough input buffer length
 INPUT_BUFFER_LENGTH = 16384
@@ -293,6 +295,10 @@ def main():
     sap = subp.add_parser("gettconinfo", help="Prints TCON Id and Session Id for a cifs file")
     sap.add_argument("file")
     sap.set_defaults(func=cmd_gettconinfo)
+
+    sap = subp.add_parser("notify", help="Query a directory for change notifications")
+    sap.add_argument("file")
+    sap.set_defaults(func=cmd_notify)
 
     # parse arguments
     args = ap.parse_args()
@@ -904,6 +910,78 @@ def cmd_gettconinfo(args):
 
     print("TCON Id: 0x%x"%tcon.tid)
     print("Session Id: 0x%x"%tcon.session_id)
+
+def cmd_notify(args):
+    try:
+        fd = os.open(args.file, os.O_RDONLY)
+    except Exception as e:
+        print("syscall failed: %s"%e)
+        return False
+
+    thread = threading.Thread(target=notify_thread, args=(fd,))
+    thread.start()
+
+    try:
+        thread.join()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        os.close(fd)
+        return False
+
+def notify_thread(fd):
+    fmt = "<IBI"
+    # See `struct smb3_notify_info` in linux kernel fs/smb/client/cifs_ioctl.h
+    completion_filter = 0xFFF
+    watch_tree = True
+    data_len = 1000
+
+    while True:
+        buf = bytearray(struct.pack(fmt, completion_filter, watch_tree, data_len))
+        buf.extend(bytearray(data_len))
+
+        try:
+            fcntl.ioctl(fd, CIFS_IOC_NOTIFY_INFO, buf, True)
+        except Exception as e:
+            print("syscall failed: %s"%e)
+            return False
+
+        _, _, data_len_returned = struct.unpack_from(fmt, buf, 0)
+        print("Notify completed, returned data_len is", data_len_returned)
+        notify_data, = struct.unpack_from(f'{data_len_returned}s', buf, struct.calcsize(fmt))
+        print_notify(notify_data)
+
+def print_notify(notify_data):
+    if notify_data is None:
+        return
+
+    data_size = len(notify_data)
+    if data_size == 0:
+        return
+
+    BYTES_PER_LINE = 16
+    for offset in range(0, data_size, BYTES_PER_LINE):
+        chunk = notify_data[offset:offset + BYTES_PER_LINE]
+
+        # raw hex data
+        hex_bytes = "".join(
+            (" " if i % 8 == 0 else "") + f"{x:02x} "
+            for i, x in enumerate(chunk)
+        )
+
+        # padding
+        pad_len = BYTES_PER_LINE - len(chunk)
+        pad = "   " * pad_len
+        if pad_len >= 8:
+            pad += " " * (pad_len // 8)
+
+        # ASCII
+        ascii_part = "".join(
+            chr(x) if 31 < x < 127 else "."
+            for x in chunk
+        )
+
+        print(f"{offset:08x}: {hex_bytes}{pad} {ascii_part}")
 
 if __name__ == '__main__':
     main()

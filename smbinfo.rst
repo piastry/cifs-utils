@@ -98,6 +98,8 @@ the SMB3 traffic of this mount can be decryped e.g. via wireshark
 
 `gettconinfo`: Prints both the TCON Id and Session Id for a cifs file.
 
+`notify`: Query a directory for change notifications.
+
 *****
 NOTES
 *****
