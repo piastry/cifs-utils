@@ -428,7 +428,7 @@ def cmd_fileallinfo(args):
 def win_to_datetime(smb2_time):
     usec = (smb2_time / 10) % 1000000
     sec  = (smb2_time - 116444736000000000) // 10000000
-    return datetime.datetime.fromtimestamp(sec + usec/10000000)
+    return datetime.datetime.fromtimestamp(sec + usec/1000000)
 
 def cmd_filebasicinfo(args):
     qi = QueryInfoStruct(info_type=0x1, file_info_class=4, input_buffer_length=40)
