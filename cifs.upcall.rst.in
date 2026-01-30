@@ -11,7 +11,7 @@ Userspace upcall helper for Common Internet File System (CIFS)
 SYNOPSIS
 ********
 
-  cifs.upcall [--trust-dns|-t] [--version|-v] [--legacy-uid|-l]
+  cifs.upcall [--trust-dns|-t] [--version|-v] [--legacy-uid|-l] [--debug|-d]
               [--krb5conf=/path/to/krb5.conf|-k /path/to/krb5.conf]
               [--keytab=/path/to/keytab|-K /path/to/keytab] [--expire|-e nsecs] {keyid}
 
@@ -37,6 +37,9 @@ OPTIONS
 
 -c
   This option is deprecated and is currently ignored.
+
+--debug|-d
+  Enable debug logs. By default no debug messages are logged, only errors.
 
 --no-env-probe|-E
   Normally, ``cifs.upcall`` will probe the environment variable space of
