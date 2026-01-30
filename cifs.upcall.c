@@ -1650,7 +1650,7 @@ int main(const int argc, char *const argv[])
 					 __func__);
 		} else {
 			 if (!get_tgt_time(ccache)) {
-				syslog(LOG_DEBUG, "%s: valid TGT is not present in credential cache",
+				syslog(LOG_ERR, "%s: valid TGT is not present in credential cache",
 						__func__);
 				krb5_cc_close(context, ccache);
 				ccache = NULL;
@@ -1753,7 +1753,7 @@ retry_new_hostname:
 	}
 
 	if (rc) {
-		syslog(LOG_DEBUG, "Unable to obtain service ticket");
+		syslog(LOG_ERR, "Unable to obtain service ticket");
 		goto out;
 	}
 
