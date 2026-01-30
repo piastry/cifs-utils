@@ -1388,10 +1388,11 @@ lowercase_string(char *c)
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: %s [ -K /path/to/keytab] [-k /path/to/krb5.conf] [-E] [-t] [-v] [-l] [-e nsecs] key_serial\n", prog);
+	fprintf(stderr, "Usage: %s [ -K /path/to/keytab] [-k /path/to/krb5.conf] [-d] [-E] [-t] [-v] [-l] [-e nsecs] key_serial\n", prog);
 }
 
 static const struct option long_options[] = {
+	{"debug", 0, NULL, 'd'},
 	{"no-env-probe", 0, NULL, 'E'},
 	{"krb5conf", 1, NULL, 'k'},
 	{"legacy-uid", 0, NULL, 'l'},
@@ -1411,6 +1412,7 @@ int main(const int argc, char *const argv[])
 	size_t datalen;
 	long rc = 1;
 	int c;
+	int mask;
 	bool try_dns = false, legacy_uid = false , env_probe = true;
 	char *buf;
 	char hostbuf[NI_MAXHOST], *host;
@@ -1427,11 +1429,18 @@ int main(const int argc, char *const argv[])
 	hostbuf[0] = '\0';
 
 	openlog(prog, 0, LOG_DAEMON);
+	mask = LOG_UPTO(LOG_ERR);
+	setlogmask(mask);
 
-	while ((c = getopt_long(argc, argv, "cEk:K:ltve:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "cdEk:K:ltve:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'c':
 			/* legacy option -- skip it */
+			break;
+		case 'd':
+			/* enable debug logs */
+			mask = LOG_UPTO(LOG_DEBUG);
+			setlogmask(mask);
 			break;
 		case 'E':
 			/* skip probing initiating process env */
