@@ -631,7 +631,13 @@ icfk_cleanup:
 	goto out;
 }
 
-#define CIFS_SERVICE_NAME "cifs"
+static struct cifs_service_name {
+	const char *name;
+	int type;
+} cifs_service_names[] = {
+	{ "cifs", KRB5_NT_UNKNOWN },
+	{ "CIFS", KRB5_NT_SRV_HST },
+};
 
 static krb5_error_code check_service_ticket_exists(krb5_ccache ccache,
 						   const char *hostname)
@@ -639,6 +645,8 @@ static krb5_error_code check_service_ticket_exists(krb5_ccache ccache,
 	krb5_creds mcreds, out_creds;
 	const char *errmsg;
 	krb5_error_code rc;
+	size_t count = sizeof(cifs_service_names) / sizeof(struct cifs_service_name);
+	size_t i = 0;
 
 	memset(&mcreds, 0, sizeof(mcreds));
 
@@ -651,32 +659,40 @@ static krb5_error_code check_service_ticket_exists(krb5_ccache ccache,
 		return rc;
 	}
 
-	rc = krb5_sname_to_principal(context, hostname, CIFS_SERVICE_NAME,
-			KRB5_NT_UNKNOWN, &mcreds.server);
-	if (rc) {
-		errmsg = krb5_get_error_message(context, rc);
-		syslog(LOG_DEBUG, "%s: unable to convert service name (%s) to principal: %s",
-		       __func__, hostname, errmsg);
-		krb5_free_error_message(context, errmsg);
-		krb5_free_principal(context, mcreds.client);
-		return rc;
+	for (i = 0; i < count; i++) {
+		rc = krb5_sname_to_principal(context, hostname,
+				cifs_service_names[i].name,
+				cifs_service_names[i].type, &mcreds.server);
+		if (rc) {
+			errmsg = krb5_get_error_message(context, rc);
+			syslog(LOG_DEBUG,
+				"%s: unable to convert service name (%s) to "
+				"principal: %s",
+				__func__, hostname, errmsg);
+			krb5_free_error_message(context, errmsg);
+			goto out_free_principal;
+		}
+
+		rc = krb5_timeofday(context, &mcreds.times.endtime);
+		if (rc) {
+			errmsg = krb5_get_error_message(context, rc);
+			syslog(LOG_DEBUG, "%s: unable to get time: %s",
+				__func__, errmsg);
+			krb5_free_error_message(context, errmsg);
+			krb5_free_principal(context, mcreds.server);
+			goto out_free_principal;
+		}
+
+		rc = krb5_cc_retrieve_cred(context, ccache, KRB5_TC_MATCH_TIMES,
+					   &mcreds, &out_creds);
+		krb5_free_principal(context, mcreds.server);
+		if (!rc) {
+			krb5_free_cred_contents(context, &out_creds);
+			break;
+		}
 	}
-
-	rc = krb5_timeofday(context, &mcreds.times.endtime);
-	if (rc) {
-		errmsg = krb5_get_error_message(context, rc);
-		syslog(LOG_DEBUG, "%s: unable to get time: %s", __func__, errmsg);
-		krb5_free_error_message(context, errmsg);
-		goto out_free_principal;
-	}
-
-	rc = krb5_cc_retrieve_cred(context, ccache, KRB5_TC_MATCH_TIMES, &mcreds, &out_creds);
-
-	if (!rc)
-		krb5_free_cred_contents(context, &out_creds);
 
 out_free_principal:
-	krb5_free_principal(context, mcreds.server);
 	krb5_free_principal(context, mcreds.client);
 
 	return rc;
@@ -694,6 +710,9 @@ cifs_krb5_get_req(const char *host, krb5_ccache ccache,
 #if defined(HAVE_KRB5_AUTH_CON_SETADDRS) && defined(HAVE_KRB5_AUTH_CON_SET_REQ_CKSUMTYPE)
 	static char gss_cksum[24] = { 0x10, 0x00, /* ... */};
 #endif
+	size_t count = sizeof(cifs_service_names) / sizeof(struct cifs_service_name);
+	size_t i = 0;
+
 	memset(&in_creds, 0, sizeof(in_creds));
 
 	ret = krb5_cc_get_principal(context, ccache, &in_creds.client);
@@ -703,16 +722,21 @@ cifs_krb5_get_req(const char *host, krb5_ccache ccache,
 		return ret;
 	}
 
-	ret = krb5_sname_to_principal(context, host, CIFS_SERVICE_NAME,
-					KRB5_NT_UNKNOWN, &in_creds.server);
-	if (ret) {
-		syslog(LOG_DEBUG, "%s: unable to convert sname to princ (%s).",
-		       __func__, host);
-		goto out_free_principal;
-	}
+	for (i = 0; i < count; i++) {
+		ret = krb5_sname_to_principal(context, host, cifs_service_names[i].name,
+				cifs_service_names[i].type, &in_creds.server);
+		if (ret) {
+			syslog(LOG_DEBUG, "%s: unable to convert sname to princ (%s).",
+			       __func__, host);
+			goto out_free_principal;
+		}
 
-	ret = krb5_get_credentials(context, 0, ccache, &in_creds, &out_creds);
-	krb5_free_principal(context, in_creds.server);
+		ret = krb5_get_credentials(context, 0, ccache, &in_creds, &out_creds);
+		krb5_free_principal(context, in_creds.server);
+		if (!ret) {
+			break;
+		}
+	}
 	if (ret) {
 		syslog(LOG_DEBUG, "%s: unable to get credentials for %s",
 		       __func__, host);
@@ -834,44 +858,52 @@ cifs_gss_get_req(const char *host, DATA_BLOB *mechtoken, DATA_BLOB *sess_key)
 	gss_buffer_desc output_token;
 	gss_krb5_lucid_context_v1_t *lucid_ctx = NULL;
 	gss_krb5_lucid_key_t *key = NULL;
+	size_t count = sizeof(cifs_service_names) / sizeof(struct cifs_service_name);
+	size_t i;
 
-	size_t service_name_len = sizeof(CIFS_SERVICE_NAME) + 1 /* @ */ +
-		strlen(host) + 1;
-	char *service_name = malloc(service_name_len);
-	if (!service_name) {
-		syslog(LOG_DEBUG, "out of memory allocating service name");
-		maj_stat = GSS_S_FAILURE;
-		goto out;
+	for (i = 0; i < count; i++) {
+		size_t service_name_len = strlen(cifs_service_names[i].name) +
+			1 /* @ */ + strlen(host) + 1;
+		char *service_name = malloc(service_name_len);
+		if (!service_name) {
+			syslog(LOG_DEBUG, "out of memory allocating service name");
+			maj_stat = GSS_S_FAILURE;
+			goto out;
+		}
+
+		snprintf(service_name, service_name_len, "%s@%s",
+			 cifs_service_names[i].name, host);
+		gss_buffer_desc target_name_buf;
+		target_name_buf.value = service_name;
+		target_name_buf.length = service_name_len;
+
+		maj_stat = gss_import_name(&min_stat, &target_name_buf,
+				GSS_C_NT_HOSTBASED_SERVICE, &target_name);
+		free(service_name);
+		if (GSS_ERROR(maj_stat)) {
+			cifs_gss_display_status("gss_import_name", maj_stat, min_stat);
+			goto out;
+		}
+
+		maj_stat = gss_init_sec_context(&min_stat,
+				GSS_C_NO_CREDENTIAL, /* claimant_cred_handle */
+				&ctx,
+				target_name,
+				discard_const(gss_mech_krb5), /* force krb5 */
+				0, /* flags */
+				0, /* time_req */
+				GSS_C_NO_CHANNEL_BINDINGS, /* input_chan_bindings */
+				GSS_C_NO_BUFFER,
+				NULL, /* actual mech type */
+				&output_token,
+				NULL, /* ret_flags */
+				NULL); /* time_rec */
+
+		if (maj_stat == GSS_S_COMPLETE || maj_stat == GSS_S_CONTINUE_NEEDED) {
+			break;
+		}
+		(void) gss_release_name(&min_stat, &target_name);
 	}
-
-	snprintf(service_name, service_name_len, "%s@%s", CIFS_SERVICE_NAME,
-		 host);
-	gss_buffer_desc target_name_buf;
-	target_name_buf.value = service_name;
-	target_name_buf.length = service_name_len;
-
-	maj_stat = gss_import_name(&min_stat, &target_name_buf,
-			GSS_C_NT_HOSTBASED_SERVICE, &target_name);
-	free(service_name);
-	if (GSS_ERROR(maj_stat)) {
-		cifs_gss_display_status("gss_import_name", maj_stat, min_stat);
-		goto out;
-	}
-
-	maj_stat = gss_init_sec_context(&min_stat,
-			GSS_C_NO_CREDENTIAL, /* claimant_cred_handle */
-			&ctx,
-			target_name,
-			discard_const(gss_mech_krb5), /* force krb5 */
-			0, /* flags */
-			0, /* time_req */
-			GSS_C_NO_CHANNEL_BINDINGS, /* input_chan_bindings */
-			GSS_C_NO_BUFFER,
-			NULL, /* actual mech type */
-			&output_token,
-			NULL, /* ret_flags */
-			NULL); /* time_rec */
-
 	if (maj_stat != GSS_S_COMPLETE &&
 		maj_stat != GSS_S_CONTINUE_NEEDED) {
 		cifs_gss_display_status("init_sec_context", maj_stat, min_stat);
