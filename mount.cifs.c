@@ -684,7 +684,7 @@ get_password_from_file(int file_descript, char *filename,
 	int is_pass2 = which_pass == OPT_PASS2;
 	unsigned int pass_length = is_pass2 ?
 					  sizeof(parsed_info->password2) : sizeof(parsed_info->password);
-	char buf[pass_length + 1];
+	char buf[pass_length];
 
 	if (filename != NULL) {
 		rc = toggle_dac_capability(0, 1);
