@@ -350,13 +350,13 @@ set_password(struct parsed_mount_info *parsed_info, const char *src,
 	unsigned int i = 0, j = 0;
 
 	while (src[i]) {
-		if (src[i] == ',')
-			dst[j++] = ',';
-		dst[j++] = src[i++];
-		if (j > pass_length) {
+		if (j + 2 >= pass_length) {
 			fprintf(stderr, "Converted password too long!\n");
 			return EX_USAGE;
 		}
+		if (src[i] == ',')
+			dst[j++] = ',';
+		dst[j++] = src[i++];
 	}
 	dst[j] = '\0';
 	if (is_pass2)
