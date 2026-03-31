@@ -63,6 +63,7 @@
 #include "mount.h"
 #include "util.h"
 #include "resolve_host.h"
+#include "build_assert.h"
 
 #ifndef MS_MOVE 
 #define MS_MOVE 8192 
@@ -343,14 +344,12 @@ set_password(struct parsed_mount_info *parsed_info, const char *src,
 {
 	int is_pass2 = which_pass == OPT_PASS2 || which_pass == CRED_PASS2;
 
-	char *dst = is_pass2 ?
-				parsed_info->password2 : parsed_info->password;
-	unsigned int pass_length = is_pass2 ?
-					  sizeof(parsed_info->password2) : sizeof(parsed_info->password);
+	char *dst = is_pass2 ? parsed_info->password2 : parsed_info->password;
 	unsigned int i = 0, j = 0;
+	BUILD_ASSERT(sizeof(parsed_info->password) == sizeof(parsed_info->password2));
 
 	while (src[i]) {
-		if (j + 2 >= pass_length) {
+		if (j + 2 >= sizeof(parsed_info->password)) {
 			fprintf(stderr, "Converted password too long!\n");
 			return EX_USAGE;
 		}
@@ -362,7 +361,8 @@ set_password(struct parsed_mount_info *parsed_info, const char *src,
 	if (is_pass2)
 		parsed_info->got_password2 = 1;
 	else
-	parsed_info->got_password = 1;
+		parsed_info->got_password = 1;
+
 	return 0;
 }
 
@@ -681,10 +681,8 @@ get_password_from_file(int file_descript, char *filename,
 			   const int which_pass)
 {
 	int rc = 0;
-	int is_pass2 = which_pass == OPT_PASS2;
-	unsigned int pass_length = is_pass2 ?
-					  sizeof(parsed_info->password2) : sizeof(parsed_info->password);
-	char buf[pass_length];
+	char buf[sizeof(parsed_info->password)];
+	BUILD_ASSERT(sizeof(parsed_info->password) == sizeof(parsed_info->password2));
 
 	if (filename != NULL) {
 		rc = toggle_dac_capability(0, 1);
