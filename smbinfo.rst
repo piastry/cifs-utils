@@ -67,6 +67,8 @@ COMMAND
 
 `filestreaminfo`: Prints the FileStreamInformation class
 
+`filecompressioninfo`: Prints the FileCompressionInformation class
+
 `fsctl-getobjid`: Prints the ObjectID
 
 `getcompression`: Prints the compression setting for the file.

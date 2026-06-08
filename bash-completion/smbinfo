@@ -16,6 +16,7 @@ smb_info()
 	      filepositioninfo
 	      filestandardinfo
 	      filestreaminfo
+	      filecompressioninfo
 	      fsctl-getobjid
 	      getcompression
 	      setcompression
@@ -28,9 +29,11 @@ smb_info()
 		'-v'|'-h')
 			return 0
 			;;
-		'fileaccessinfo'|'filealigninfo'|'fileallinfo'|'filebasicinfo'|'fileeainfo'|'filefsfullsizeinfo'|\
-		'fileinternalinfo'|'filemodeinfo'|'filepositioninfo'|'filestandardinfo'|'filestreaminfo'|'fsctl-getobjid'|\
-		'getcompression'|'setcompression'|'list-snapshots'|'quota'|'secdesc'|'keys'|'gettconinfo')
+		'fileaccessinfo'|'filealigninfo'|'fileallinfo'|'filebasicinfo'|'fileeainfo'|\
+		'filefsfullsizeinfo'|'fileinternalinfo'|'filemodeinfo'|'filepositioninfo'|\
+		'filestandardinfo'|'filestreaminfo'|'filecompressioninfo'|'fsctl-getobjid'|\
+		'getcompression'|'setcompression'|'list-snapshots'|'quota'|'secdesc'|'keys'|\
+		'gettconinfo')
 			local IFS=$'\n'
 			compopt -o filenames
 			COMPREPLY=( $(compgen -f -o dirnames -- ${cur:-""}) )

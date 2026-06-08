@@ -31,6 +31,12 @@ import threading
 
 VERBOSE = False
 
+# InfoType values
+SMB2_O_INFO_FILE        = 0x01
+
+# QUERY INFO levels
+FILE_COMPRESSION_INFORMATION     = 28
+
 # ioctl ctl codes
 CIFS_QUERY_INFO          = 0xc018cf07
 CIFS_ENUMERATE_SNAPSHOTS = 0x800ccf06
@@ -262,6 +268,10 @@ def main():
     sap = subp.add_parser("filestreaminfo", help="Prints FileStreamInfo for a cifs file")
     sap.add_argument("file")
     sap.set_defaults(func=cmd_filestreaminfo)
+
+    sap = subp.add_parser("filecompressioninfo", help="Prints FileCompressionInfo for a cifs file")
+    sap.add_argument("file")
+    sap.set_defaults(func=cmd_filecompressioninfo)
 
     sap = subp.add_parser("fsctl-getobjid", help="Prints the objectid of the file and GUID of the underlying volume.")
     sap.add_argument("file")
@@ -808,6 +818,29 @@ def print_filestreaminfo(buf):
             break
 
         offset+=next_offset
+
+def cmd_filecompressioninfo(args):
+    qi = QueryInfoStruct(info_type=SMB2_O_INFO_FILE,
+                         file_info_class=FILE_COMPRESSION_INFORMATION,
+                         input_buffer_length=16)
+    try:
+        fd = os.open(args.file, os.O_RDONLY)
+        buf = qi.ioctl(fd)
+    except Exception as e:
+        print("syscall failed: %s"%e)
+        return False
+
+    comp_size, fmt, unit_shift, chunk_shift, cluster_shift = struct.unpack_from('<QHBBB', buf, 0)
+    print("Compressed File Size: %d"%comp_size)
+    fmt_name = "UNKNOWN"
+    for val, name in COMPRESSION_TYPES:
+        if fmt == val:
+            fmt_name = name
+            break
+    print("Compression Format: %d (%s)"%(fmt, fmt_name))
+    print("Compression Unit Shift: %d"%unit_shift)
+    print("Chunk Shift: %d"%chunk_shift)
+    print("Cluster Shift: %d"%cluster_shift)
 
 class KeyDebugInfoStruct:
     def __init__(self):
