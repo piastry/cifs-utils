@@ -306,7 +306,7 @@ def main():
     sap.add_argument("file")
     sap.set_defaults(func=cmd_gettconinfo)
 
-    sap = subp.add_parser("notify", help="Query a directory for change notifications")
+    sap = subp.add_parser("notify", help="Query a directory for change notifications. Press Ctrl+C to exit.")
     sap.add_argument("file")
     sap.set_defaults(func=cmd_notify)
 
@@ -960,7 +960,6 @@ def cmd_notify(args):
         pass
     finally:
         os.close(fd)
-        return False
 
 def notify_thread(fd):
     fmt = "<IBI"

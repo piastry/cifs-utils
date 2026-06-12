@@ -24,7 +24,8 @@ smb_info()
 	      quota
 	      secdesc
 	      keys
-	      gettconinfo"
+	      gettconinfo
+	      notify"
 	case $prev in
 		'-v'|'-h')
 			return 0
@@ -33,7 +34,7 @@ smb_info()
 		'filefsfullsizeinfo'|'fileinternalinfo'|'filemodeinfo'|'filepositioninfo'|\
 		'filestandardinfo'|'filestreaminfo'|'filecompressioninfo'|'fsctl-getobjid'|\
 		'getcompression'|'setcompression'|'list-snapshots'|'quota'|'secdesc'|'keys'|\
-		'gettconinfo')
+		'gettconinfo'|'notify')
 			local IFS=$'\n'
 			compopt -o filenames
 			COMPREPLY=( $(compgen -f -o dirnames -- ${cur:-""}) )
