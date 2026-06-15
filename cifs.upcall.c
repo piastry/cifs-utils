@@ -51,7 +51,6 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <ctype.h>
-#include <pwd.h>
 #include <grp.h>
 #include <stdbool.h>
 #include <errno.h>
@@ -1376,6 +1375,121 @@ static int ip_to_fqdn(const char *addrstr, char *host, size_t hostlen)
 	return 0;
 }
 
+/* cover worst case/impossible scenarios, + 1 for NUL */
+#define PROC_PID_PATH_MAXLEN	((int)strlen("/proc/2147483647/status") + 1)
+/* max valid UID/GID is (UINT_MAX - 1) */
+#define INVALID_UIDGID		UINT_MAX
+
+/*
+ * get_uidgid - Get @pid's (real) UID and/or GID.
+ * @pid: process to get UID/GID from
+ * @uidp: pointer to store @pid's UID (can be NULL)
+ * @gidp: pointer to store @pid's GID (can be NULL)
+ *
+ * Extract "Uid:" and "Gid:" fields from /proc/@pid/status.
+ * Do so based on whether @uidp or @gidp are NULL.
+ *
+ * This function assumes we're on the same namespace as @pid.
+ *
+ * Return: 0 on success, -1 otherwise (errno set).
+ *
+ * On errors, *@uidp and *@gidp are set to INVALID_UIDGID.
+ */
+static int get_uidgid(pid_t pid, uid_t *uidp, gid_t *gidp)
+{
+	char path[PROC_PID_PATH_MAXLEN] = {}, buf[256];
+	FILE *fp = NULL;
+	int ret;
+
+	errno = 0;
+	if (pid < 0 || (!uidp && !gidp)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (uidp)
+		*uidp = INVALID_UIDGID;
+
+	if (gidp)
+		*gidp = INVALID_UIDGID;
+
+	ret = snprintf(path, PROC_PID_PATH_MAXLEN, "/proc/%d/status", pid);
+	if (ret < 0 || ret >= PROC_PID_PATH_MAXLEN) {
+		if (!errno)
+			errno = ENAMETOOLONG;
+		return -1;
+	}
+
+	fp = fopen(path, "r");
+	if (!fp) {
+		ret = -1;
+		goto out;
+	}
+
+	/* Parse /proc/pid/status fields */
+	errno = 0;
+	ret = -1;
+	while (fgets(buf, 256, fp)) {
+		unsigned long long val;
+
+		errno = ENODATA;
+		if ((!uidp || strncmp(buf, "Uid:", 4)) && (!gidp || strncmp(buf, "Gid:", 4)))
+			continue;
+
+		errno = 0;
+
+		/*
+		 * Example line format (same for both Uid/Gid):
+		 * "Uid:\t%u\t%u\%u\%u"
+		 *
+		 * Where the numbers represents:
+		 * <real> <effective> <saved> <fsuid>
+		 *
+		 * We're only interested in the <real> value.
+		 *
+		 * (field names "Uid:"/"Gid:" parsed above, skip it)
+		 */
+		ret = sscanf(&buf[0] + 4, "%llu", &val);
+		if (ret != 1) {
+			ret = -1;
+			if (errno)
+				break;
+			continue;
+		}
+
+		ret = -1;
+		if (val >= UINT_MAX) {
+			errno = EINVAL;
+			break;
+		}
+
+		if (uidp && !strncmp(buf, "Uid:", 4))
+			*uidp = (uid_t)val;
+		else
+			*gidp = (gid_t)val;
+
+		if ((!uidp || *uidp != INVALID_UIDGID) && (!gidp || *gidp != INVALID_UIDGID)) {
+			errno = 0;
+			ret = 0;
+			break;
+		}
+	}
+out:
+	if (fp)
+		fclose(fp);
+
+	if (ret) {
+		syslog(LOG_DEBUG, "%s(pid=%d): %s", __func__, pid, strerror(errno));
+		if (uidp)
+			*uidp = INVALID_UIDGID;
+
+		if (gidp)
+			*gidp = INVALID_UIDGID;
+	}
+
+	return ret;
+}
+
 /* walk a string and lowercase it in-place */
 static void
 lowercase_string(char *c)
@@ -1419,10 +1533,10 @@ int main(const int argc, char *const argv[])
 	struct decoded_args *arg = NULL;
 	const char *oid;
 	uid_t uid;
+	gid_t gid;
 	char *keytab_name = NULL;
 	char *env_cachename = NULL;
 	krb5_ccache ccache = NULL;
-	struct passwd *pw;
 	unsigned expire_time = DNS_RESOLVER_DEFAULT_TIMEOUT;
 	const char *key_descr = NULL;
 
@@ -1516,6 +1630,17 @@ int main(const int argc, char *const argv[])
 	 * Otherwise, it's a spnego key request
 	 */
 
+	/*
+	 * We don't need supplementary groups, ever.
+	 * Drop them ASAP.
+	 */
+	rc = setgroups(0, NULL);
+	if (rc == -1) {
+		syslog(LOG_ERR, "setgroups: %s", strerror(errno));
+		rc = 1;
+		goto out;
+	}
+
 	rc = decode_key_description(buf, &arg);
 	free(buf);
 	if (rc) {
@@ -1575,39 +1700,6 @@ int main(const int argc, char *const argv[])
 		syslog(LOG_INFO, "upcall_target=mount, not switching namespaces to application thread");
 	}
 
-
-	/*
-	 * The kernel doesn't pass down the gid, so we resort here to scraping
-	 * one out of the passwd nss db. Note that this might not reflect the
-	 * actual gid of the process that initiated the upcall. While we could
-	 * scrape that out of /proc, relying on that is a bit more risky.
-	 */
-	pw = getpwuid(uid);
-	if (!pw) {
-		syslog(LOG_ERR, "Unable to find pw entry for uid %d: %s\n",
-			uid, strerror(errno));
-		rc = 1;
-		goto out;
-	}
-
-	/*
-	 * The kernel should send down a zero-length grouplist already, but
-	 * just to be on the safe side...
-	 */
-	rc = setgroups(0, NULL);
-	if (rc == -1) {
-		syslog(LOG_ERR, "setgroups: %s", strerror(errno));
-		rc = 1;
-		goto out;
-	}
-
-	rc = setgid(pw->pw_gid);
-	if (rc == -1) {
-		syslog(LOG_ERR, "setgid: %s", strerror(errno));
-		rc = 1;
-		goto out;
-	}
-
 	/*
 	 * We can't reasonably do this for root. When mounting a DFS share,
 	 * for instance we can end up with creds being overridden, but the env
@@ -1615,6 +1707,24 @@ int main(const int argc, char *const argv[])
 	 */
 	if (uid == 0)
 		env_probe = false;
+
+	/*
+	 * FIXME: this only works if we haven't switched PID namespaces.
+	 * If we did, /proc/arg->pid/ might not exist, or worse, point to something else.
+	 */
+	rc = get_uidgid(arg->pid, &uid, &gid);
+	if (rc) {
+		syslog(LOG_ERR, "get_uidgid (NS): %s", strerror(errno));
+		rc = 1;
+		goto out;
+	}
+
+	rc = setgid(gid);
+	if (rc) {
+		syslog(LOG_ERR, "setgid: %s", strerror(errno));
+		rc = 1;
+		goto out;
+	}
 
 	/*
 	 * Must do this before setuid, as we need elevated capabilities to
