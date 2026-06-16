@@ -834,7 +834,7 @@ static int parse_opt_token(const char *token)
 }
 
 static int
-parse_options(const char *data, struct parsed_mount_info *parsed_info)
+parse_options(char *data, struct parsed_mount_info *parsed_info)
 {
 	char *value = NULL;
 	char *equals = NULL;
