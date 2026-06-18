@@ -979,17 +979,17 @@ def notify_thread(fd):
             return False
 
         _, _, data_len_returned = struct.unpack_from(fmt, buf, 0)
-        print("Notify completed, returned data_len is", data_len_returned)
+        print("Notifications received, returned data_len is", data_len_returned)
         notify_data, = struct.unpack_from(f'{data_len_returned}s', buf, struct.calcsize(fmt))
+
+        if len(notify_data) == 0:
+            continue
+
+        print_notify_parsed(notify_data)
         print_notify(notify_data)
 
 def print_notify(notify_data):
-    if notify_data is None:
-        return
-
     data_size = len(notify_data)
-    if data_size == 0:
-        return
 
     BYTES_PER_LINE = 16
     for offset in range(0, data_size, BYTES_PER_LINE):
@@ -1014,6 +1014,35 @@ def print_notify(notify_data):
         )
 
         print(f"{offset:08x}: {hex_bytes}{pad} {ascii_part}")
+
+def print_notify_parsed(notify_data):
+    # See `struct file_notify_information` in linux kernel fs/smb/common/fscc.h
+    FILE_NOTIFY_HEADER_SIZE = 12
+
+    data_size = len(notify_data)
+    offset = 0
+
+    while offset < data_size:
+        if offset + FILE_NOTIFY_HEADER_SIZE > data_size:
+            print("notify data truncated at offset %d"%offset)
+            break
+
+        next_offset, action, name_length = struct.unpack_from('<III', notify_data, offset)
+
+        if offset + FILE_NOTIFY_HEADER_SIZE + name_length > data_size:
+            print("notify entry truncated at offset %d"%offset)
+            break
+
+        filename_bytes = notify_data[offset + FILE_NOTIFY_HEADER_SIZE:
+                                     offset + FILE_NOTIFY_HEADER_SIZE + name_length]
+        filename = filename_bytes.decode("utf-16le", errors="replace")
+
+        print("Action: 0x%08x, FileName: %s"%(action, filename))
+
+        if next_offset == 0:
+            break
+
+        offset += next_offset
 
 if __name__ == '__main__':
     main()
