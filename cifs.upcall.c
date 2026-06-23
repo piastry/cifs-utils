@@ -1375,8 +1375,8 @@ static int ip_to_fqdn(const char *addrstr, char *host, size_t hostlen)
 	return 0;
 }
 
-/* cover worst case/impossible scenarios, + 1 for NUL */
-#define PROC_PID_PATH_MAXLEN	((int)strlen("/proc/2147483647/status") + 1)
+/* cover worst case/impossible scenarios */
+#define PROC_PID_PATH_MAXLEN	((int)sizeof("/proc/2147483647/status"))
 /* max valid UID/GID is (UINT_MAX - 1) */
 #define INVALID_UIDGID		UINT_MAX
 
