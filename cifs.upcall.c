@@ -247,7 +247,7 @@ static time_t get_tgt_time(krb5_ccache ccache)
 		    !strncasecmp(name + KRB5_TGS_NAME_SIZE + 1, realm,
 				 strlen(realm))
 		    && creds.times.endtime > time(NULL))
-			credtime = creds.times.endtime;
+			credtime = (unsigned)creds.times.endtime;
 		krb5_free_cred_contents(context, &creds);
 		krb5_free_unparsed_name(context, name);
 	}
