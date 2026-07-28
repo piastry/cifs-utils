@@ -2145,7 +2145,7 @@ int main(int argc, char **argv)
 	int rc = 0;
 	int already_uppercased = 0;
 	int sloppy = 0;
-	int fallback_sudo_uid = 0;
+	int fallback_sudo_uid = geteuid() || getuid();
 	size_t options_size = MAX_OPTIONS_LEN;
 	struct parsed_mount_info *parsed_info = NULL;
 	struct parsed_mount_info *reinit_parsed_info = NULL;
