@@ -151,7 +151,7 @@ Igor Mammedov wrote the cifs.upcall program.
 
 Jeff Layton authored this manpage.
 
-The maintainer of the Linux CIFS VFS is Steve French.
+The maintainer of the Linux CIFS VFS is Paulo Alcantara.
 
 The Linux CIFS Mailing list is the preferred place to ask questions
 regarding these programs.
