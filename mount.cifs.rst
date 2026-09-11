@@ -1066,6 +1066,6 @@ AUTHOR
 
 Steve French
 
-The maintainer of the Linux cifs vfs is Steve French. The maintainer of the
+The maintainer of the Linux CIFS VFS is Paulo Alcantara. The maintainer of the
 cifs-utils suite of user space tools is Pavel Shilovsky. The Linux CIFS Mailing
 list is the preferred place to ask questions regarding these programs.
