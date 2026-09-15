@@ -14,6 +14,7 @@ smb_info()
 	      filefsfullsizeinfo
 	      fileinternalinfo
 	      filemodeinfo
+	      filenormalizednameinfo
 	      filepositioninfo
 	      filestandardinfo
 	      filestreaminfo
@@ -33,7 +34,7 @@ smb_info()
 			;;
 		'fileaccessinfo'|'filealigninfo'|'fileallinfo'|'filealternatenameinfo'|\
 		'filebasicinfo'|'fileeainfo'|'filefsfullsizeinfo'|'fileinternalinfo'|\
-		'filemodeinfo'|'filepositioninfo'|\
+		'filemodeinfo'|'filenormalizednameinfo'|'filepositioninfo'|\
 		'filestandardinfo'|'filestreaminfo'|'filecompressioninfo'|'fsctl-getobjid'|\
 		'getcompression'|'setcompression'|'list-snapshots'|'quota'|'secdesc'|'keys'|\
 		'gettconinfo'|'notify')

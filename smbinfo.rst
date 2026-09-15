@@ -63,6 +63,8 @@ COMMAND
 
 `filemodeinfo`: Prints the FileModeInformation class
 
+`filenormalizednameinfo`: Prints the FileNormalizedNameInformation class
+
 `filepositioninfo`: Prints the FilePositionInformation class
 
 `filestandardinfo`: Prints the FileStandardInformation class

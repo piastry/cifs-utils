@@ -37,6 +37,7 @@ SMB2_O_INFO_FILE        = 0x01
 # QUERY INFO levels
 FILE_ALTERNATE_NAME_INFORMATION  = 21
 FILE_COMPRESSION_INFORMATION     = 28
+FILE_NORMALIZED_NAME_INFORMATION = 48
 
 # ioctl ctl codes
 CIFS_QUERY_INFO          = 0xc018cf07
@@ -262,6 +263,10 @@ def main():
     sap.add_argument("file")
     sap.set_defaults(func=cmd_filemodeinfo)
 
+    sap = subp.add_parser("filenormalizednameinfo", help="Prints FileNormalizedNameInfo for a cifs file")
+    sap.add_argument("file")
+    sap.set_defaults(func=cmd_filenormalizednameinfo)
+
     sap = subp.add_parser("filepositioninfo", help="Prints FilePositionInfo for a cifs file")
     sap.add_argument("file")
     sap.set_defaults(func=cmd_filepositioninfo)
@@ -456,6 +461,10 @@ def cmd_filenameinfo(args, file_info_class, label):
 def cmd_filealternatenameinfo(args):
     return cmd_filenameinfo(args, FILE_ALTERNATE_NAME_INFORMATION,
                             "Alternate Name")
+
+def cmd_filenormalizednameinfo(args):
+    return cmd_filenameinfo(args, FILE_NORMALIZED_NAME_INFORMATION,
+                            "Normalized Name")
 
 def print_filenameinfo(buf, label):
     name_length = struct.unpack_from('<I', buf, 0)[0]
