@@ -51,6 +51,8 @@ COMMAND
 
 `fileallinfo`: Prints the FileAllInformation class
 
+`filealternatenameinfo`: Prints the FileAlternateNameInformation class
+
 `filebasicinfo`: Prints the FileBasicInformation class
 
 `fileeainfo`: Prints the FileEaInformation class

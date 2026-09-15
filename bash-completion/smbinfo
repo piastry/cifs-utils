@@ -8,6 +8,7 @@ smb_info()
 	OPTS="fileaccessinfo
 	      filealigninfo
 	      fileallinfo
+	      filealternatenameinfo
 	      filebasicinfo
 	      fileeainfo
 	      filefsfullsizeinfo
@@ -30,8 +31,9 @@ smb_info()
 		'-v'|'-h')
 			return 0
 			;;
-		'fileaccessinfo'|'filealigninfo'|'fileallinfo'|'filebasicinfo'|'fileeainfo'|\
-		'filefsfullsizeinfo'|'fileinternalinfo'|'filemodeinfo'|'filepositioninfo'|\
+		'fileaccessinfo'|'filealigninfo'|'fileallinfo'|'filealternatenameinfo'|\
+		'filebasicinfo'|'fileeainfo'|'filefsfullsizeinfo'|'fileinternalinfo'|\
+		'filemodeinfo'|'filepositioninfo'|\
 		'filestandardinfo'|'filestreaminfo'|'filecompressioninfo'|'fsctl-getobjid'|\
 		'getcompression'|'setcompression'|'list-snapshots'|'quota'|'secdesc'|'keys'|\
 		'gettconinfo'|'notify')

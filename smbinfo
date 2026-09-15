@@ -35,6 +35,7 @@ VERBOSE = False
 SMB2_O_INFO_FILE        = 0x01
 
 # QUERY INFO levels
+FILE_ALTERNATE_NAME_INFORMATION  = 21
 FILE_COMPRESSION_INFORMATION     = 28
 
 # ioctl ctl codes
@@ -237,6 +238,10 @@ def main():
     sap.add_argument("file")
     sap.set_defaults(func=cmd_fileallinfo)
 
+    sap = subp.add_parser("filealternatenameinfo", help="Prints FileAlternateNameInfo for a cifs file")
+    sap.add_argument("file")
+    sap.set_defaults(func=cmd_filealternatenameinfo)
+
     sap = subp.add_parser("filebasicinfo", help="Prints FileBasicInfo for a cifs file")
     sap.add_argument("file")
     sap.set_defaults(func=cmd_filebasicinfo)
@@ -434,6 +439,28 @@ def cmd_fileallinfo(args):
     print_filepositioninfo(buf[80:])
     print_filemodeinfo(buf[88:])
     print_filealigninfo(buf[92:])
+
+def cmd_filenameinfo(args, file_info_class, label):
+    qi = QueryInfoStruct(info_type=SMB2_O_INFO_FILE,
+                         file_info_class=file_info_class,
+                         input_buffer_length=INPUT_BUFFER_LENGTH)
+    try:
+        fd = os.open(args.file, os.O_RDONLY)
+        buf = qi.ioctl(fd)
+    except Exception as e:
+        print("syscall failed: %s"%e)
+        return False
+
+    print_filenameinfo(buf, label)
+
+def cmd_filealternatenameinfo(args):
+    return cmd_filenameinfo(args, FILE_ALTERNATE_NAME_INFORMATION,
+                            "Alternate Name")
+
+def print_filenameinfo(buf, label):
+    name_length = struct.unpack_from('<I', buf, 0)[0]
+    name = buf[4:4 + name_length].decode("utf-16le")
+    print("%s: %s"%(label, name))
 
 def win_to_datetime(smb2_time):
     usec = (smb2_time / 10) % 1000000
