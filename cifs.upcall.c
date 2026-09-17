@@ -534,15 +534,31 @@ get_existing_cc(const char *env_cachename)
 	krb5_ccache cc;
 	char *cachename;
 
+	/*
+	 * If we scraped a cache name out of the initiating process'
+	 * environment, resolve it explicitly instead of exporting it via
+	 * $KRB5CCNAME and relying on krb5_cc_default().  MIT krb5 reads
+	 * $KRB5CCNAME through secure_getenv(), which returns NULL whenever the
+	 * process runs with AT_SECURE set (e.g. an SELinux domain transition on
+	 * the request-key upcall).  In that case the setenv() is silently
+	 * ignored and krb5 falls back to the profile default_ccache_name (KCM:
+	 * on many distros), so a TGT living in a FILE ccache is never found.
+	 * krb5_cc_resolve() takes the name directly and is not affected.
+	 */
 	if (env_cachename) {
-		if (setenv(ENV_NAME, env_cachename, 1))
-			syslog(LOG_DEBUG, "%s: failed to setenv %d\n", __func__, errno);
-	}
-
-	ret = krb5_cc_default(context, &cc);
-	if (ret) {
-		syslog(LOG_DEBUG, "%s: krb5_cc_default returned %d", __func__, ret);
-		return NULL;
+		ret = krb5_cc_resolve(context, env_cachename, &cc);
+		if (ret) {
+			syslog(LOG_DEBUG, "%s: krb5_cc_resolve(%s) failed: %d\n",
+			       __func__, env_cachename, ret);
+			return NULL;
+		}
+	} else {
+		ret = krb5_cc_default(context, &cc);
+		if (ret) {
+			syslog(LOG_DEBUG, "%s: krb5_cc_default returned %d",
+			       __func__, ret);
+			return NULL;
+		}
 	}
 
 	ret = krb5_cc_get_full_name(context, cc, &cachename);
