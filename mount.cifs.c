@@ -2030,8 +2030,18 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 			strlcpy(parsed_info->username, getenv("USER"),
 				sizeof(parsed_info->username));
 		} else {
-			strlcpy(parsed_info->username, getusername(getuid()),
-				sizeof(parsed_info->username));
+			char *username = getusername(getuid());
+
+			if (username) {
+				if (check_creds_field(username)) {
+					fprintf(stderr, "Invalid username for uid %u\n",
+						(unsigned int)getuid());
+					rc = EX_USAGE;
+					goto assemble_exit;
+				}
+				strlcpy(parsed_info->username, username,
+					sizeof(parsed_info->username));
+			}
 		}
 		parsed_info->got_user = 1;
 	}
