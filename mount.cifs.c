@@ -588,6 +588,11 @@ parsing_err:
 	return CRED_UNPARSEABLE;
 }
 
+static int check_creds_field(const char *v)
+{
+	return strpbrk(v, ",=\r\n") != NULL;
+}
+
 static int open_cred_file(char *file_name,
 			struct parsed_mount_info *parsed_info)
 {
@@ -638,6 +643,11 @@ static int open_cred_file(char *file_name,
 		/* parse next token */
 		switch (parse_cred_line(line_buf + i, &temp_val)) {
 		case CRED_USER:
+			if (check_creds_field(temp_val)) {
+				fprintf(stderr, "Invalid username in credentials file\n");
+				i = EX_USAGE;
+				goto return_i;
+			}
 			strlcpy(parsed_info->username, temp_val,
 				sizeof(parsed_info->username));
 			parsed_info->got_user = 1;
@@ -653,6 +663,11 @@ static int open_cred_file(char *file_name,
 				goto return_i;
 			break;
 		case CRED_DOM:
+			if (check_creds_field(temp_val)) {
+				fprintf(stderr, "Invalid domain in credentials file\n");
+				i = EX_USAGE;
+				goto return_i;
+			}
 			strlcpy(parsed_info->domain, temp_val,
 				sizeof(parsed_info->domain));
 			break;
@@ -2006,12 +2021,18 @@ assemble_mountinfo(struct parsed_mount_info *parsed_info,
 		 * USER env variable (ie user%password form) as there is
 		 * already a PASSWD environment varaible
 		 */
-		if (getenv("USER"))
+		if (getenv("USER")) {
+			if (check_creds_field(getenv("USER"))) {
+				fprintf(stderr, "Invalid username in USER environment variable\n");
+				rc = EX_USAGE;
+				goto assemble_exit;
+			}
 			strlcpy(parsed_info->username, getenv("USER"),
 				sizeof(parsed_info->username));
-		else
+		} else {
 			strlcpy(parsed_info->username, getusername(getuid()),
 				sizeof(parsed_info->username));
+		}
 		parsed_info->got_user = 1;
 	}
 
